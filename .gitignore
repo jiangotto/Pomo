@@ -1,0 +1,34 @@
+# Temporary Office files
+~$*
+
+# Firmware
+Firmware/**/.claude/
+Firmware/**/temp/
+Firmware/**/__Previews/
+Firmware/**/impl/
+Firmware/**/*.vo
+Firmware/**/*_tmp.v
+Firmware/**/*.log
+Firmware/**/*.rpt.html
+Firmware/**/*_resource.html
+Firmware/**/*.gprj.user
+Firmware/**/*.rao
+Firmware/**/*.vg
+Firmware/**/*.ipc
+Firmware/**/*.mod
+Firmware/**/project.ini
+Firmware/**/*.prj
+Firmware/**/*.xml
+
+# Hardware
+Hardware/History/
+Hardware/__Previews/
+Hardware/Project\ Logs\ for*/
+Hardware/Project\ Outputs\ for*/
+Hardware/*.zip
+Hardware/*.REP
+Hardware/*.RUL
+Hardware/*.htm
+Hardware/*.html
+Hardware/*.xlsx
+Hardware/PnPout/

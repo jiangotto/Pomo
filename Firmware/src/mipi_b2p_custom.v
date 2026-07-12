@@ -1,0 +1,223 @@
+// Copyright Yuhan Jiang 2025-2026
+//
+// This source describes Open Hardware and is licensed under the CERN-OHL-S v2
+//
+// You may redistribute and modify this source and make products using
+// it under the terms of the CERN-OHL-S v2 (https://cern.ch/cern-ohl).
+// This source is distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY,
+// INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
+// PARTICULAR PURPOSE. Please see the CERN-OHL-S v2 for applicable conditions.
+
+`timescale 1ns / 1ps
+
+module mipi_b2p_custom #(
+	parameter HSYNC_WIDTH  = 32,  // hsync pulse width, in pixel clocks
+	parameter VSYNC_LINES  = 8    // vsync duration, in hsync pulses (lines)
+) (
+	// === byte clock domain inputs (from protocol parser) ===
+	input  wire        clk_byte,
+	input  wire        rst_n_byte,
+
+	input  wire        i_sp_en,        // o_sp_en & ecc_ok
+	input  wire        i_lp_av_en,     // o_lp_av_en & ecc_ok
+	input  wire [5:0]  i_dt,
+	input  wire [15:0] i_wc,           // word count (payload bytes)
+	input  wire [15:0] i_payload,      // 2 bytes per beat (2-lane 1:8)
+	input  wire [1:0]  i_payload_dv,   // byte-valid per payload byte
+
+	// === pixel clock domain outputs ===
+	input  wire        clk_pixel,
+	input  wire        rst_n_pixel,
+
+	output wire        o_vsync,
+	output wire        o_hsync,
+	output wire        o_de,
+	output wire [23:0] o_pixel          // RGB888
+);
+
+	// =========================================================================
+	// byte clock domain --- Sync FSM
+	// =========================================================================
+	// Burst mode: DT=0x01 is both V Sync Start and the first H Sync.
+	// vsync stays high for VSYNC_LINES hsync pulses, then drops.
+	reg        vs_level;         // vsync level (set/clear, CDC to pixel clock)
+	reg        hs_toggle;        // hsync toggle (flip per line, edge→pulse in px)
+	reg [ 7:0] vs_line_cnt;      // count hsync pulses within vsync
+
+	always @(posedge clk_byte or negedge rst_n_byte) begin
+		if (!rst_n_byte) begin
+			vs_level    <= 1'b0;
+			hs_toggle   <= 1'b0;
+			vs_line_cnt <= 8'd0;
+		end else if (i_sp_en) begin
+			if (i_dt == 6'h01) begin              // V Sync Start
+				vs_level    <= 1'b1;
+				hs_toggle   <= ~hs_toggle;        // first hsync of the frame
+				vs_line_cnt <= 8'd1;
+			end else if (i_dt == 6'h21) begin      // H Sync Start
+				hs_toggle <= ~hs_toggle;
+				if (vs_level) begin
+					vs_line_cnt <= vs_line_cnt + 8'd1;
+					if (vs_line_cnt == VSYNC_LINES - 1)
+						vs_level <= 1'b0;
+				end
+			end
+		end
+	end
+
+	// =========================================================================
+	// byte clock domain --- Byte Assembler (3 bytes → 1 pixel)
+	// =========================================================================
+	// 2 bytes/beat on a 2-lane 1:8 link.
+	// 3 bytes = 1 RGB888 pixel → 3 beats produce 2 pixels.
+	reg [23:0] pixel_buf;
+	reg [1:0]  byte_pos;       // 0,1,2 bytes toward next pixel
+	reg        fifo_wr;
+	reg [15:0] wc_remain;      // bytes remaining in current long packet
+	reg        i_lp_av_en_d;   // edge detect for WC load
+
+	wire lane0_vld = i_payload_dv[0];
+	wire lane1_vld = i_payload_dv[1];
+
+	wire [7:0] b0 = i_payload[7:0];     // lane0 byte
+	wire [7:0] b1 = i_payload[15:8];    // lane1 byte
+
+	wire [15:0] wc_now = i_lp_av_en ? i_wc : wc_remain;
+	wire        in_pkt = i_lp_av_en || (wc_remain > 0);
+
+	always @(posedge clk_byte) begin
+		i_lp_av_en_d <= i_lp_av_en;
+	end
+
+	always @(posedge clk_byte or negedge rst_n_byte) begin
+		if (!rst_n_byte) begin
+			pixel_buf  <= 24'd0;
+			byte_pos   <= 2'd0;
+			fifo_wr    <= 1'b0;
+			wc_remain  <= 16'd0;
+		end else begin
+			fifo_wr <= 1'b0;
+
+			// Load WC at start of new long packet
+			if (i_lp_av_en && !i_lp_av_en_d) begin
+				wc_remain <= i_wc;
+				byte_pos  <= 2'd0;
+				pixel_buf <= 24'd0;
+			end
+
+			if (in_pkt && (lane0_vld || lane1_vld)) begin
+				if (lane0_vld && lane1_vld && (wc_now >= 2)) begin
+					// 2 bytes this beat
+					wc_remain <= i_lp_av_en ? (i_wc - 16'd2) : (wc_remain - 16'd2);
+					case (byte_pos)
+					2'd0: begin
+						pixel_buf[7:0]   <= b0;
+						pixel_buf[15:8]  <= b1;
+						byte_pos <= 2'd2;
+					end
+					2'd1: begin
+						pixel_buf[15:8]  <= b0;
+						pixel_buf[23:16] <= b1;
+						fifo_wr  <= 1'b1;
+						byte_pos <= 2'd0;
+					end
+					2'd2: begin
+						pixel_buf[23:16] <= b0;
+						fifo_wr  <= 1'b1;
+						pixel_buf[7:0]   <= b1;
+						byte_pos <= 2'd1;
+					end
+					endcase
+				end else if (lane0_vld) begin
+					// 1 byte: lane0 only (last beat of packet)
+					wc_remain <= i_lp_av_en ? (i_wc - 16'd1) : (wc_remain - 16'd1);
+					case (byte_pos)
+					2'd0: begin pixel_buf[7:0]   <= b0; byte_pos <= 2'd1; end
+					2'd1: begin pixel_buf[15:8]  <= b0; byte_pos <= 2'd2; end
+					2'd2: begin pixel_buf[23:16] <= b0; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
+					endcase
+				end else begin
+					// 1 byte: lane1 only (last beat of packet)
+					wc_remain <= i_lp_av_en ? (i_wc - 16'd1) : (wc_remain - 16'd1);
+					case (byte_pos)
+					2'd0: begin pixel_buf[7:0]   <= b1; byte_pos <= 2'd1; end
+					2'd1: begin pixel_buf[15:8]  <= b1; byte_pos <= 2'd2; end
+					2'd2: begin pixel_buf[23:16] <= b1; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
+					endcase
+				end
+			end else begin
+				// no valid data in this packet → reset
+				byte_pos  <= 2'd0;
+			end
+		end
+	end
+
+	// =========================================================================
+	// Async FIFO (24-bit × depth 8)
+	// =========================================================================
+	wire        fifo_empty;
+	wire        fifo_full;
+	wire [23:0] fifo_q;
+
+	FIFO_HS_MIPI_Top u_fifo(
+		.Data   (pixel_buf), //input [23:0] Data
+		.Reset  (!rst_n_byte), //input Reset
+		.WrClk  (clk_byte), //input WrClk
+		.RdClk  (clk_pixel), //input RdClk
+		.WrEn   (fifo_wr && !fifo_full), //input WrEn
+		.RdEn   (!fifo_empty), //input RdEn
+		.Q      (fifo_q), //output [23:0] Q
+		.Empty  (fifo_empty), //output Empty
+		.Full   (fifo_full) //output Full
+	);
+
+	// =========================================================================
+	// pixel clock domain --- CDC → hs pulse, vs level
+	// =========================================================================
+	// vs_level is a level signal (kept high for VSYNC_LINES lines)
+	// hs_toggle is a toggle that flips on each hsync event
+	reg [1:0] vs_sync, hs_toggle_sync;
+
+	always @(posedge clk_pixel) begin
+		vs_sync        <= {vs_sync[0],        vs_level};
+		hs_toggle_sync <= {hs_toggle_sync[0], hs_toggle};
+	end
+
+	wire hs_edge = hs_toggle_sync[1] ^ hs_toggle_sync[0];
+
+	// hsync pulse generator (HSYNC_WIDTH pixel clocks wide)
+	reg [5:0] hs_cnt;
+	reg       hs_active;
+
+	always @(posedge clk_pixel or negedge rst_n_pixel) begin
+		if (!rst_n_pixel) begin
+			hs_cnt    <= 6'd0;
+			hs_active <= 1'b0;
+		end else begin
+			if (hs_edge) begin
+				hs_active <= 1'b1;
+				hs_cnt    <= HSYNC_WIDTH - 1;
+			end else if (hs_active && hs_cnt > 0) begin
+				hs_cnt <= hs_cnt - 1'b1;
+			end else begin
+				hs_active <= 1'b0;
+			end
+		end
+	end
+
+	assign o_vsync = vs_sync[1];     // level, directly from synced vs_level
+	assign o_hsync = hs_active;
+	assign o_pixel = fifo_q;
+
+	// o_de must align with o_pixel: fifo_q is valid one cycle after rd_en.
+	// Delay o_de by one pixel clock to match.
+	reg o_de_r;
+	always @(posedge clk_pixel or negedge rst_n_pixel) begin
+		if (!rst_n_pixel)
+			o_de_r <= 1'b0;
+		else
+			o_de_r <= !fifo_empty;
+	end
+	assign o_de = o_de_r;
+
+endmodule
