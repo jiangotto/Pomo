@@ -68,8 +68,8 @@ module fb_hpram #(
 	Video_Frame_Buffer_Top u_framebuffer(
 		.I_rst_n           (init_done), //input I_rst_n
 		.I_dma_clk         (hpram_clk), //input I_dma_clk
-		.I_wr_halt         (1'd0), //input [0:0] I_wr_halt
-		.I_rd_halt         (1'd0), //input [0:0] I_rd_halt
+//		.I_wr_halt         (1'd0), //input [0:0] I_wr_halt
+//		.I_rd_halt         (1'd0), //input [0:0] I_rd_halt
 		.I_vin0_clk        (bo_clk), //input I_vin0_clk
 		.I_vin0_vs_n       (bo_vsync), //input I_vin0_vs_n
 		.I_vin0_de         (bo_de), //input I_vin0_de

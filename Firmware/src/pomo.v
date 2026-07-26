@@ -52,7 +52,7 @@ module pomo (
 	localparam [7:0]  VFP   = `DEFAULT_VFP;
 	localparam [7:0]  VSYNC = `DEFAULT_VSYNC;
 	localparam [7:0]  VBP   = `DEFAULT_VBP;
-	localparam [11:0] VACT  = `DEFAULT_VACT;
+	localparam [11:0] VACT  = `EPD_VACT;
 
 	// input edge detect
 	reg vin_vsync_d;
@@ -560,10 +560,28 @@ reg        s4_dith_1b;
 			sdclk_r <= (clk_delay_cnt != 2'd0 && clk_delay_cnt <= 2'd2);
 
 			if (s5_fall) begin
+`ifdef EPD_AUTO_HPAD
+				// Flush a final partial source word instead of discarding it.
+				// Unused 2-bit source slots are NO_DRIVE (2'b00).
+				if (s5_pix_cnt != 2'd0) begin
+					case (s5_pix_cnt)
+						2'd1: epd_data_r <= {s5_shift[1:0], 6'b0};
+						2'd2: epd_data_r <= {s5_shift[3:0], 4'b0};
+						2'd3: epd_data_r <= {s5_shift[5:0], 2'b0};
+					endcase
+					clk_delay_cnt    <= 2'd3;
+					s5_extra_pending <= 1'b1;
+				end else if (clk_delay_cnt != 2'd0) begin
+					s5_extra_pending <= 1'b1;
+				end else begin
+					clk_delay_cnt <= 2'd3;
+				end
+`else
 				if (clk_delay_cnt != 2'd0)
 					s5_extra_pending <= 1'b1;
 				else
 					clk_delay_cnt <= 2'd3;
+`endif
 			end
 			if (clk_delay_cnt != 2'd0) begin
 				clk_delay_cnt <= clk_delay_cnt - 2'd1;
@@ -694,12 +712,14 @@ reg        s4_dith_1b;
 	);
 	assign epd_gdclk = epd_gdclk_dl;
 	assign epd_gdoe = 1'b1;
-//    assign epd_gdoe = (epd_vsync || epd_vbp || epd_vact) ? 1'b1 : 1'b0;
+//	assign epd_gdoe = (epd_vsync || epd_vbp || epd_vact) ? 1'b1 : 1'b0;
 	assign epd_gdsp = (epd_vsync) ? 1'b0 : 1'b1;
 	assign epd_sdoe = 1'b1;
-//    assign epd_sdoe = (epd_vsync || epd_vbp || epd_vact) ? 1'b1 : 1'b0;
+//	assign epd_sdoe = (epd_vsync || epd_vbp || epd_vact) ? 1'b1 : 1'b0;
 	assign epd_sdle = (epd_hsync && (epd_vact_le)) ? 1'b1 : 1'b0;
-	assign epd_sdce = (epd_act) ? 1'b0 : 1'b1;
+	// A padded partial word is real source data. Keep SDCE selected for it;
+	// s5_extra_pending clears before the following dummy SDCLK.
+	assign epd_sdce = (epd_act || s5_extra_pending) ? 1'b0 : 1'b1;
 	assign epd_data  = epd_data_r;
 //  assign epd_sdclk = epd_sdclk_r;
 

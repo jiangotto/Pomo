@@ -45,6 +45,7 @@ module vin_mipi (
 	reg        hs_en_reg;
 	reg        hs_mask;
 	reg [1:0]  hs_mask_cnt;
+	reg [4:0]  hs_tail_cnt;
 
 	// Protocol layer outputs
 	wire        o_sp_en;
@@ -85,7 +86,7 @@ module vin_mipi (
 		.lp_data0_out(lp_data0_out),
 		.lp_data0_in (),
 		.lp_data0_dir(1'b0),
-		.hs_en       (hs_en_reg && !hs_mask),
+		.hs_en       (hs_en_reg),
 		.clk_term_en (1'b1),
 		.data_term_en(hs_en_reg),
 		.ready       (ready)
@@ -113,10 +114,19 @@ module vin_mipi (
 	always @(posedge clk_byte_out or negedge rst_n) begin
 		if (!rst_n) begin
 			hs_en_reg <= 1'b0;
+			hs_tail_cnt <= 5'd0;
 		end else if (from_1_to_0) begin
 			hs_en_reg <= 1'b1;
+			hs_tail_cnt <= 5'd0;
 		end else if (from_x_to_3) begin
-			hs_en_reg <= 1'b0;
+			// The D-PHY byte/align pipeline is still producing READY/data after
+			// the physical lane has returned to LP11. Keep HS enabled long enough
+			// to flush a complete short-packet header.
+			hs_tail_cnt <= 5'd16;
+		end else if (hs_tail_cnt != 0) begin
+			hs_tail_cnt <= hs_tail_cnt - 5'd1;
+			if (hs_tail_cnt == 5'd1)
+				hs_en_reg <= 1'b0;
 		end
 	end
 
@@ -195,6 +205,8 @@ module vin_mipi (
 	reg [10:0] frm_sp_cnt;     // short packets per frame
 	reg [10:0] frm_ecc_cnt;    // ecc_ok pulses per frame
 	reg [10:0] frm_lp_cnt;     // RGB long packets per frame
+	reg [10:0] last_frm_sp_cnt; // completed frame, for debug
+	reg [10:0] last_frm_lp_cnt; // completed frame, for debug
 	wire       frm_rst = o_sp_en && ecc_ok && (o_dt == 6'h01);
 
 	always @(posedge clk_byte_out or negedge rst_n) begin
@@ -202,7 +214,11 @@ module vin_mipi (
 			frm_sp_cnt  <= 11'd0;
 			frm_ecc_cnt <= 11'd0;
 			frm_lp_cnt  <= 11'd0;
+			last_frm_sp_cnt <= 11'd0;
+			last_frm_lp_cnt <= 11'd0;
 		end else if (frm_rst) begin
+			last_frm_sp_cnt <= frm_sp_cnt;
+			last_frm_lp_cnt <= frm_lp_cnt;
 			frm_sp_cnt  <= 11'd1;
 			frm_ecc_cnt <= 11'd1;
 			frm_lp_cnt  <= 11'd0;
@@ -218,12 +234,26 @@ module vin_mipi (
 	// =========================================================================
 
 	wire lock;
+	wire [5:0] pixel_pll_odsel;
+	wire       pixel_pll_reset;
+	wire       pixel_pll_ready;
+
+	mipi_pll_odiv_ctrl u_pixel_pll_ctrl (
+		.clk_ref   (clk),
+		.clk_byte  (clk_byte_out),
+		.rst_n     (rst_n),
+		.pll_lock  (lock),
+		.odsel     (pixel_pll_odsel),
+		.pll_reset (pixel_pll_reset),
+		.pll_ready (pixel_pll_ready)
+	);
 
 	Gowin_PLLVR_M2D3 u_pll_v_pclk(
 		.clkout (clk_pixel_out),
 		.lock   (lock),
-		.reset  (~rst_n),
-		.clkin  (clk_byte_out)
+		.reset  (pixel_pll_reset),
+		.clkin  (clk_byte_out),
+		.odsel  (pixel_pll_odsel)
 	);
 
 	assign v_pclk = clk_pixel_out;
@@ -263,7 +293,7 @@ module vin_mipi (
 		.VSYNC_LINES (`DEFAULT_VSYNC)    // vsync pulse width in pixel clocks
 	) u_pixel_converter (
 		.clk_byte       (clk_byte_out),
-		.rst_n_byte     (rst_n & lock),
+		.rst_n_byte     (rst_n & pixel_pll_ready),
 		.i_sp_en        (o_sp_en_dl),        // o_sp_en & ecc_ok
 		.i_lp_av_en     (o_lp_av_en_dl),     // o_lp_av_en & ecc_ok
 		.i_dt           (o_dt_dl),
@@ -271,7 +301,7 @@ module vin_mipi (
 		.i_payload      (o_payload_dl),      // 2 bytes per beat (2-lane 1:8)
 		.i_payload_dv   (o_payload_dv_dl),   // byte-valid per payload byte
 		.clk_pixel      (clk_pixel_out),
-		.rst_n_pixel    (rst_n & lock),
+		.rst_n_pixel    (rst_n & pixel_pll_ready),
 		.o_vsync        (conv_vsync),
 		.o_hsync        (conv_hsync),
 		.o_de           (conv_de),

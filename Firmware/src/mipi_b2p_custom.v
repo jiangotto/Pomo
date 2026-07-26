@@ -145,8 +145,8 @@ module mipi_b2p_custom #(
 					2'd2: begin pixel_buf[23:16] <= b1; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
 					endcase
 				end
-			end else begin
-				// no valid data in this packet → reset
+			end else if (!in_pkt) begin
+				// between packets — reset, safe to drop partial bytes
 				byte_pos  <= 2'd0;
 			end
 		end
@@ -174,16 +174,55 @@ module mipi_b2p_custom #(
 	// =========================================================================
 	// pixel clock domain --- CDC → hs pulse, vs level
 	// =========================================================================
-	// vs_level is a level signal (kept high for VSYNC_LINES lines)
-	// hs_toggle is a toggle that flips on each hsync event
-	reg [1:0] vs_sync, hs_toggle_sync;
+	// vs_level and hs_toggle change simultaneously on V Sync Start in the
+	// byte clock domain. Pack them into a single 2-bit bus with a valid
+	// toggle so they stay co-timed through the CDC.
 
-	always @(posedge clk_pixel) begin
-		vs_sync        <= {vs_sync[0],        vs_level};
-		hs_toggle_sync <= {hs_toggle_sync[0], hs_toggle};
+	// --- byte clock: detect changes, pack data, toggle valid ---
+	reg        vs_level_d;
+	reg        hs_toggle_d;
+	reg        cdc_valid;
+	reg [1:0]  cdc_data;   // {vs_level, hs_toggle}
+
+	always @(posedge clk_byte) begin
+		vs_level_d  <= vs_level;
+		hs_toggle_d <= hs_toggle;
 	end
 
-	wire hs_edge = hs_toggle_sync[1] ^ hs_toggle_sync[0];
+	wire vs_chg = vs_level  ^ vs_level_d;
+	wire hs_chg = hs_toggle ^ hs_toggle_d;
+
+	always @(posedge clk_byte or negedge rst_n_byte) begin
+		if (!rst_n_byte) begin
+			cdc_valid <= 1'b0;
+			cdc_data  <= 2'd0;
+		end else if (vs_chg || hs_chg) begin
+			cdc_data  <= {vs_level, hs_toggle};
+			cdc_valid <= ~cdc_valid;
+		end
+	end
+
+	// --- pixel clock: sync valid (3-stage), sample data on edge ---
+	reg [2:0]  cdc_valid_sync;
+	reg        px_vs_level;
+	reg        px_hs_toggle;
+	reg        px_hs_toggle_d;
+
+	always @(posedge clk_pixel or negedge rst_n_pixel) begin
+		if (!rst_n_pixel) begin
+			cdc_valid_sync <= 3'd0;
+			px_vs_level    <= 1'b0;
+			px_hs_toggle   <= 1'b0;
+			px_hs_toggle_d <= 1'b0;
+		end else begin
+			cdc_valid_sync <= {cdc_valid_sync[1:0], cdc_valid};
+			px_hs_toggle_d <= px_hs_toggle;
+			if (cdc_valid_sync[2] ^ cdc_valid_sync[1])
+				{px_vs_level, px_hs_toggle} <= cdc_data;
+		end
+	end
+
+	wire hs_edge = px_hs_toggle ^ px_hs_toggle_d;
 
 	// hsync pulse generator (HSYNC_WIDTH pixel clocks wide)
 	reg [5:0] hs_cnt;
@@ -205,7 +244,7 @@ module mipi_b2p_custom #(
 		end
 	end
 
-	assign o_vsync = vs_sync[1];     // level, directly from synced vs_level
+	assign o_vsync = px_vs_level;
 	assign o_hsync = hs_active;
 	assign o_pixel = fifo_q;
 

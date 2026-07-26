@@ -4,14 +4,15 @@
 //Tool Version: V1.9.12 (64-bit)
 //Part Number: GW1NSR-LV4CQN48PC6/I5
 //Device: GW1NSR-4C
-//Created Time: Tue May 19 14:59:31 2026
+//Created Time: Sat Jul 18 21:13:25 2026
 
-module Gowin_PLLVR_M2D3 (clkout, lock, reset, clkin);
+module Gowin_PLLVR_M2D3 (clkout, lock, reset, clkin, odsel);
 
 output clkout;
 output lock;
 input reset;
 input clkin;
+input [5:0] odsel;
 
 wire clkoutp_o;
 wire clkoutd_o;
@@ -34,7 +35,7 @@ PLLVR pllvr_inst (
     .CLKFB(gw_gnd),
     .FBDSEL({gw_gnd,gw_gnd,gw_gnd,gw_gnd,gw_gnd,gw_gnd}),
     .IDSEL({gw_gnd,gw_gnd,gw_gnd,gw_gnd,gw_gnd,gw_gnd}),
-    .ODSEL({gw_gnd,gw_gnd,gw_gnd,gw_gnd,gw_gnd,gw_gnd}),
+    .ODSEL(odsel),
     .PSDA({gw_gnd,gw_gnd,gw_gnd,gw_gnd}),
     .DUTYDA({gw_gnd,gw_gnd,gw_gnd,gw_gnd}),
     .FDLY({gw_gnd,gw_gnd,gw_gnd,gw_gnd}),
@@ -46,7 +47,7 @@ defparam pllvr_inst.DYN_IDIV_SEL = "false";
 defparam pllvr_inst.IDIV_SEL = 2;
 defparam pllvr_inst.DYN_FBDIV_SEL = "false";
 defparam pllvr_inst.FBDIV_SEL = 1;
-defparam pllvr_inst.DYN_ODIV_SEL = "false";
+defparam pllvr_inst.DYN_ODIV_SEL = "true";
 defparam pllvr_inst.ODIV_SEL = 32;
 defparam pllvr_inst.PSDA_SEL = "0000";
 defparam pllvr_inst.DYN_DA_EN = "false";

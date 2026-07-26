@@ -96,6 +96,10 @@ module top (
 	wire        vin_hsync;
 	wire        vin_de;
 	wire [3:0]  vin_pixel;
+	wire        mipi_vsync;
+	wire        mipi_hsync;
+	wire        mipi_de;
+	wire [3:0]  mipi_pixel;
 
 	vin_mipi u_vin_mipi (
 		.clk         (sys_clk),
@@ -107,11 +111,40 @@ module top (
 		.mipi_lane1_p(mipi_lane1_p),
 		.mipi_lane1_n(mipi_lane1_n),
 		.v_pclk      (vin_pclk),
-		.v_vsync     (vin_vsync),
-		.v_hsync     (vin_hsync),
-		.v_de        (vin_de),
-		.v_pixel     (vin_pixel)
+		.v_vsync     (mipi_vsync),
+		.v_hsync     (mipi_hsync),
+		.v_de        (mipi_de),
+		.v_pixel     (mipi_pixel)
 	);
+
+`ifdef EPD_PIXEL_REORDER
+	epd_pixel_reorder #(
+		.IN_HFP   (`DEFAULT_HFP),
+		.IN_HSYNC (`DEFAULT_HSYNC),
+		.IN_HBP   (`DEFAULT_HBP),
+		.IN_HACT  (`DEFAULT_HACT),
+		.IN_VFP   (`DEFAULT_VFP),
+		.IN_VSYNC (`DEFAULT_VSYNC),
+		.IN_VBP   (`DEFAULT_VBP),
+		.IN_VACT  (`DEFAULT_VACT)
+	) u_epd_pixel_reorder (
+		.clk       (vin_pclk),
+		.rst_n     (sys_rst_n),
+		.in_vsync  (mipi_vsync),
+		.in_hsync  (mipi_hsync),
+		.in_de     (mipi_de),
+		.in_pixel  (mipi_pixel),
+		.out_vsync (vin_vsync),
+		.out_hsync (vin_hsync),
+		.out_de    (vin_de),
+		.out_pixel (vin_pixel)
+	);
+`else
+	assign vin_vsync = mipi_vsync;
+	assign vin_hsync = mipi_hsync;
+	assign vin_de    = mipi_de;
+	assign vin_pixel = mipi_pixel;
+`endif
 
 	// =========================================================================
 	// Pomo

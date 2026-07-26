@@ -1,0 +1,206 @@
+`timescale 1ns/1ps
+
+// Internal video timing and test-pattern generator for Pomo.
+//
+// Output convention matches the current Pomo pipeline:
+//   - VSYNC: active high
+//   - HSYNC: active high
+//   - DE:    active high
+//   - PIXEL: 4-bit grayscale, 4'h0 = black, 4'hF = white
+//
+// PATTERN_MODE:
+//   0: static white
+//   1: central rectangle toggles black/white
+//   2: vertical stripes inside central rectangle, inverted periodically
+//   3: checkerboard inside central rectangle, inverted periodically
+//   4: full screen toggles black/white
+//   5: black reference background + central vertical stripes invert
+//   6: black reference background + central rectangle toggles black/white
+//
+// Recommended diagnostic use:
+//   1) Clock this module from mipi_pclk to bypass MIPI data lanes/parser
+//      while retaining the MIPI-derived pixel clock.
+//   2) Clock it from sys_clk to bypass the complete MIPI RX path.
+//
+// H/V timing should match the parameters used by pomo.v.
+// For about 85 Hz with a ~37.33 MHz pixel clock, use H_FRONT_PORCH=20.
+// For a 27 MHz system clock, H_FRONT_PORCH=16 gives about 62 Hz.
+
+module internal_video_gen #(
+    parameter integer H_ACTIVE          = 800,
+    parameter integer H_SYNC            = 32,
+    parameter integer H_BACK_PORCH      = 40,
+    parameter integer H_FRONT_PORCH     = 20,
+
+    parameter integer V_ACTIVE          = 480,
+    parameter integer V_SYNC            = 8,
+    parameter integer V_BACK_PORCH      = 6,
+    parameter integer V_FRONT_PORCH     = 1,
+
+    parameter integer PATTERN_MODE      = 2,
+    parameter integer TOGGLE_FRAMES     = 1,
+
+    parameter integer RECT_X0           = 120,
+    parameter integer RECT_X1           = 680,
+    parameter integer RECT_Y0           = 80,
+    parameter integer RECT_Y1           = 400,
+
+    // Vertical stripe/checker cell size = 2^PATTERN_BLOCK_LOG2 pixels.
+    parameter integer PATTERN_BLOCK_LOG2 = 4
+)(
+    input  wire        clk,
+    input  wire        rst_n,
+    input  wire        enable,
+
+    output wire        pclk,
+    output wire        vsync,
+    output wire        hsync,
+    output wire        de,
+    output reg  [3:0]  pixel,
+
+    output reg  [31:0] frame_count
+);
+
+    localparam integer H_TOTAL = H_SYNC + H_BACK_PORCH +
+                                 H_ACTIVE + H_FRONT_PORCH;
+    localparam integer V_TOTAL = V_SYNC + V_BACK_PORCH +
+                                 V_ACTIVE + V_FRONT_PORCH;
+
+    localparam integer H_ACTIVE_START = H_SYNC + H_BACK_PORCH;
+    localparam integer H_ACTIVE_END   = H_ACTIVE_START + H_ACTIVE;
+
+    localparam integer V_ACTIVE_START = V_SYNC + V_BACK_PORCH;
+    localparam integer V_ACTIVE_END   = V_ACTIVE_START + V_ACTIVE;
+
+    // Fixed counter widths are used for compatibility with Gowin Verilog flow.
+    // They are sufficient for the intended 800x480 timing.
+    reg [11:0] h_cnt;
+    reg [10:0] v_cnt;
+    reg [15:0] toggle_count;
+    reg phase;
+
+    assign pclk  = clk;
+    assign hsync = enable && (h_cnt < H_SYNC);
+    assign vsync = enable && (v_cnt < V_SYNC);
+
+    assign de = enable &&
+                (h_cnt >= H_ACTIVE_START) &&
+                (h_cnt <  H_ACTIVE_END) &&
+                (v_cnt >= V_ACTIVE_START) &&
+                (v_cnt <  V_ACTIVE_END);
+
+    wire [11:0] x_pos = h_cnt - H_ACTIVE_START;
+    wire [10:0] y_pos = v_cnt - V_ACTIVE_START;
+
+    wire in_rect = de &&
+                   (x_pos >= RECT_X0) &&
+                   (x_pos <  RECT_X1) &&
+                   (y_pos >= RECT_Y0) &&
+                   (y_pos <  RECT_Y1);
+
+    wire stripe_phase =
+        x_pos[PATTERN_BLOCK_LOG2] ^ phase;
+
+    wire checker_phase =
+        x_pos[PATTERN_BLOCK_LOG2] ^
+        y_pos[PATTERN_BLOCK_LOG2] ^
+        phase;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            h_cnt        <= 12'd0;
+            v_cnt        <= 11'd0;
+            toggle_count <= 16'd0;
+            phase        <= 1'b0;
+            frame_count  <= 32'd0;
+        end else if (!enable) begin
+            h_cnt        <= 12'd0;
+            v_cnt        <= 11'd0;
+            toggle_count <= 16'd0;
+            phase        <= 1'b0;
+            frame_count  <= 32'd0;
+        end else begin
+            if (h_cnt == H_TOTAL - 1) begin
+                h_cnt <= 12'd0;
+
+                if (v_cnt == V_TOTAL - 1) begin
+                    v_cnt       <= 11'd0;
+                    frame_count <= frame_count + 32'd1;
+
+                    if (TOGGLE_FRAMES <= 1) begin
+                        phase <= ~phase;
+                    end else if (toggle_count == TOGGLE_FRAMES - 1) begin
+                        toggle_count <= 16'd0;
+                        phase        <= ~phase;
+                    end else begin
+                        toggle_count <= toggle_count + 1'b1;
+                    end
+                end else begin
+                    v_cnt <= v_cnt + 1'b1;
+                end
+            end else begin
+                h_cnt <= h_cnt + 1'b1;
+            end
+        end
+    end
+
+    always @(*) begin
+        // Blanking data is irrelevant; white is a safe debug value.
+        pixel = 4'hF;
+
+        if (de) begin
+            case (PATTERN_MODE)
+                0: begin
+                    pixel = 4'hF;
+                end
+
+                1: begin
+                    // The entire central rectangle changes every phase.
+                    pixel = in_rect ?
+                            (phase ? 4'h0 : 4'hF) :
+                            4'hF;
+                end
+
+                2: begin
+                    // Inverting vertical bars. Best for finding column,
+                    // packing, lane, and horizontal-address errors.
+                    pixel = in_rect ?
+                            (stripe_phase ? 4'h0 : 4'hF) :
+                            4'hF;
+                end
+
+                3: begin
+                    pixel = in_rect ?
+                            (checker_phase ? 4'h0 : 4'hF) :
+                            4'hF;
+                end
+
+                4: begin
+                    pixel = phase ? 4'h0 : 4'hF;
+                end
+
+                5: begin
+                    // Static black outside the test region provides an
+                    // optical black reference. The central vertical stripes
+                    // keep inverting. During their black phase, compare them
+                    // directly with the surrounding black border.
+                    pixel = in_rect ?
+                            (stripe_phase ? 4'h0 : 4'hF) :
+                            4'h0;
+                end
+
+                6: begin
+                    // Static black border + a large toggling rectangle.
+                    pixel = in_rect ?
+                            (phase ? 4'h0 : 4'hF) :
+                            4'h0;
+                end
+
+                default: begin
+                    pixel = 4'hF;
+                end
+            endcase
+        end
+    end
+
+endmodule
