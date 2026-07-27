@@ -154,18 +154,33 @@ module pomo (
 	// ============================================================
 	// Blue noise coordinates
 	// ============================================================
-	reg [3:0] noise_x;
+	// Count the physical source coordinate at the reordered stream. The blue
+	// noise ROM is 64x64, so both coordinates must retain six address bits.
+	reg [5:0] noise_phys_x;
 
 	always @(posedge clk) begin
 		if (rst)
-			noise_x <= 4'd0;
+			noise_phys_x <= 6'd0;
 		else if (vin_hsync_rise)
-			noise_x <= 4'd0;
+			noise_phys_x <= 6'd0;
 		else if (vin_de)
-			noise_x <= noise_x + 4'd1;
+			noise_phys_x <= noise_phys_x + 6'd1;
 	end
 
-	wire [5:0] noise_y = scan_v_cnt[5:0];
+	// Remove the vertical blanking offset before addressing the noise tile.
+	// In reorder mode, convert the physical W x 2H scan coordinate back to
+	// the original logical 2W x H coordinate so adjacent logical pixels use
+	// adjacent entries of the blue-noise pattern:
+	//   logical_x = 2*physical_x + physical_y[0]
+	//   logical_y = physical_y / 2
+	wire [10:0] noise_phys_y = scan_v_cnt - (VSYNC + VBP);
+`ifdef EPD_PIXEL_REORDER
+	wire [5:0] noise_x = {noise_phys_x[4:0], noise_phys_y[0]};
+	wire [5:0] noise_y = noise_phys_y[6:1];
+`else
+	wire [5:0] noise_x = noise_phys_x;
+	wire [5:0] noise_y = noise_phys_y[5:0];
+`endif
 
 	// ============================================================
 	// Auto clear timer
