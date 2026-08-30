@@ -6,6 +6,7 @@ Firmware/**/.claude/
 Firmware/**/temp/
 Firmware/**/__Previews/
 Firmware/**/impl/
+Firmware/**/__pycache__/
 Firmware/**/*.vo
 Firmware/**/*_tmp.v
 Firmware/**/*.log
@@ -21,14 +22,20 @@ Firmware/**/*.prj
 Firmware/**/*.xml
 
 # Hardware
-Hardware/History/
-Hardware/__Previews/
-Hardware/Project\ Logs\ for*/
-Hardware/Project\ Outputs\ for*/
-Hardware/*.zip
-Hardware/*.REP
-Hardware/*.RUL
-Hardware/*.htm
-Hardware/*.html
-Hardware/*.xlsx
-Hardware/PnPout/
+Hardware/**/History/
+Hardware/**/__Previews/
+Hardware/**/Project\ Logs\ for*/
+Hardware/**/Project\ Outputs\ for*/
+Hardware/**/*.zip
+Hardware/**/*.REP
+Hardware/**/*.RUL
+Hardware/**/*.htm
+Hardware/**/*.html
+Hardware/**/PnPout/
+Hardware/**/Status Report.Txt
+
+# Local development settings and one-off Gowin probe scripts
+.claude/
+codex_synth_check.tcl
+gowin_commands_probe.tcl
+gowin_generate_mipi_bram_fifo.tcl

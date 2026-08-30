@@ -1,0 +1,11 @@
+Copyright Yuhan Jiang 2025-2026
+
+The hardware design files in this directory (schematics, PCB layout, and
+related design documents) are licensed under the CERN Open Hardware Licence
+Version 2 - Strongly Reciprocal (CERN-OHL-S v2).
+
+See the LICENSE file in the project root for the full license text.
+
+You may freely use, study, modify, and distribute these designs, provided
+that any Products made from modified versions of these designs are
+accompanied by the Complete Source under the same CERN-OHL-S v2 license.

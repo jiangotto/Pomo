@@ -1,0 +1,53 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW1NSR-4C" pn="GW1NSR-LV4CQN48PC7/I6">gw1nsr4c-009</Device>
+    <FileList>
+        <File path="src/blue_noise_dithering.v" type="file.verilog" enable="1"/>
+        <File path="src/defines.vh" type="file.verilog" enable="1"/>
+        <File path="src/degamma.v" type="file.verilog" enable="1"/>
+        <File path="src/delay.v" type="file.verilog" enable="1"/>
+        <File path="src/epd_pixel_reorder.v" type="file.verilog" enable="1"/>
+        <File path="src/fb_hpram.v" type="file.verilog" enable="1"/>
+        <File path="src/fifo_hs/fifo_hs_mipi.v" type="file.verilog" enable="1"/>
+        <File path="src/fifo_hs/fifo_hs_vin.v" type="file.verilog" enable="1"/>
+        <File path="src/gowin_pllvr/gowin_pllvr_hyperram.v" type="file.verilog" enable="1"/>
+        <File path="src/gowin_pllvr/gowin_pllvr_m2d3.v" type="file.verilog" enable="1"/>
+        <File path="src/gowin_prom/gowin_prom_lut16.v" type="file.verilog" enable="1"/>
+        <File path="src/gowin_prom/gowin_prom_noise.v" type="file.verilog" enable="1"/>
+        <File path="src/gowin_sp/gowin_sp_error.v" type="file.verilog" enable="1"/>
+        <File path="src/hyperram_memory_interface/hyperram_memory_interface.v" type="file.verilog" enable="1"/>
+        <File path="src/i2c_master/i2c_master.v" type="file.verilog" enable="1"/>
+        <File path="src/internal_video_gen.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_b2p_custom.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_byte_to_pixel_converter/mipi_byte_to_pixel_converter.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_dsi_csi2_rx/mipi_dsi_csi2_rx.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_pll_odiv_ctrl.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_rx_advance/mipi_rx_advance.v" type="file.verilog" enable="1"/>
+        <File path="src/mu_dbsync.v" type="file.verilog" enable="1"/>
+        <File path="src/mu_dsync.v" type="file.verilog" enable="1"/>
+        <File path="src/pixel_processing.v" type="file.verilog" enable="1"/>
+        <File path="src/pmic_ctrl.v" type="file.verilog" enable="1"/>
+        <File path="src/pomo.v" type="file.verilog" enable="1"/>
+        <File path="src/rgb888_to_y4.v" type="file.verilog" enable="1"/>
+        <File path="src/top.v" type="file.verilog" enable="1"/>
+        <File path="src/video_frame_buffer/video_frame_buffer.v" type="file.verilog" enable="1"/>
+        <File path="src/vin_mipi.v" type="file.verilog" enable="1"/>
+        <File path="src/wvfmlut.v" type="file.verilog" enable="1"/>
+        <File path="src/Pomo.cst" type="file.cst" enable="1"/>
+        <File path="src/Pomo.sdc" type="file.sdc" enable="1"/>
+        <File path="src/mipi_pixel_debug.rao" type="file.gao" enable="0"/>
+        <File path="src/mipi_rx_debug.rao" type="file.gao" enable="0"/>
+        <File path="noise/noise.mi" type="file.other" enable="1"/>
+        <File path="waveform/a2_wvfm.mi" type="file.other" enable="1"/>
+        <File path="waveform/autolut.mi" type="file.other" enable="1"/>
+        <File path="waveform/du.mi" type="file.other" enable="1"/>
+        <File path="waveform/du4_wvfm.mi" type="file.other" enable="1"/>
+        <File path="waveform/du_wvfm.mi" type="file.other" enable="1"/>
+        <File path="waveform/gc16.mi" type="file.other" enable="1"/>
+        <File path="waveform/gc16_wvfm.mi" type="file.other" enable="1"/>
+        <File path="waveform/gl16.mi" type="file.other" enable="1"/>
+    </FileList>
+</Project>
