@@ -1,20 +1,36 @@
-# Pomo DriverBoard V2
+# Pomo
 
 [English](README.md) | [简体中文](README_CN.md)
 
-一款开源 FPGA 墨水屏控制板，可将双通道 MIPI DSI 视频转换为裸墨水屏所需的 Source/Gate 驱动时序。
-
-<div align="center">
-  <img src="Assets/Assembly_V2.PNG" alt="Pomo DriverBoard V2 装配图" width="720">
-</div>
+一款开源 FPGA 墨水屏控制板，可将双通道 MIPI DSI 视频转换为并口墨水屏所需的 Source/Gate 驱动时序。
 
 ## 项目简介
 
-Pomo V2 是当前主要维护的硬件和固件版本。它在一块电路板上集成了高云 GW1NSR-4C FPGA、HyperRAM 帧缓存、墨水屏电源管理电路以及16位并行 Source 接口。Linux 开发板或其他 MIPI DSI 主机只需输出普通 RGB888 视频，FPGA 会将其转换为墨水屏需要的波形像素状态和面板扫描时序。
+Pomo 接收 Linux 开发板或其他 MIPI DSI 主机输出的普通 RGB888 视频，并将其转换为并口墨水屏所需的波形像素状态和扫描信号。两个版本均使用高云 GW1NSR-4C FPGA 和 HyperRAM 帧缓存。
 
-目前已经使用 Luckfox 和微雪开发板测试过 MIPI 输入。根据主机连接器的定义，可能需要使用同面或反面 FPC 排线。
+## 版本对比
 
-仓库中仍然保留最初的8位 V1 设计，但后续开发以 V2 为主。
+Pomo 目前包含两套相互对应的硬件和固件版本：
+
+| | V1 | V2 |
+|---|---|---|
+| 状态 | 初始版本，为已有板卡保留 | 当前版本，后续主要开发对象 |
+| EPD Source 总线 | 8位，每个 SDCLK 传输4个2-bit像素 | 16位，每个 SDCLK 传输8个2-bit像素 |
+| PMIC | TPS65185 | 默认 SY7636A，也可在固件中切换为 TPS65185 |
+| 控制信号 | FPGA 控制 GDOE、SDOE、PMIC WAKEUP 和 VCOM 控制 | GDOE/SDOE及PMIC辅助控制由硬件处理，释放引脚连接D8–D15 |
+| 工程路径 | `Firmware/V1`、`Hardware/V1`、`Case/V1` | `Firmware/V2`、`Hardware/V2`、`Case/V2` |
+
+V1 和 V2 的 EPD 数据位宽、管脚分配和 PMIC 控制方式不同，位流不能互换。使用时应选择一个版本，并配套使用对应的固件、硬件和机械文件。
+
+## V2
+
+<div align="center">
+  <img src="Assets/Assembly_V2.PNG" alt="Pomo V2 装配图" width="720">
+</div>
+
+V2 在一块电路板上集成了 FPGA、HyperRAM、墨水屏电源管理电路和16位并行 Source 接口。新制作的板卡建议从 V2 开始，下面的文档也将以 V2 为重点。
+
+目前已经使用 Luckfox 和微雪开发板测试过 MIPI 输入。根据主机连接器的定义，可能需要使用反面 FPC 排线。
 
 ## V2 主要特性
 
@@ -22,7 +38,7 @@ Pomo V2 是当前主要维护的硬件和固件版本。它在一块电路板上
 - 实时测量 MIPI Byte Clock，并动态选择 PLL 输出分频系数
 - 使用 HyperRAM 保存当前和目标像素状态
 - 16位 EPD Source 数据总线，每个 SDCLK 装载8个2-bit驱动像素
-- 在 FPGA 内生成裸墨水屏 Source 和 Gate 扫描时序
+- 在 FPGA 内生成并口墨水屏 Source 和 Gate 扫描时序
 - 支持通过编译宏选择 SY7636A 或 TPS65185，V2 默认使用 SY7636A
 - 支持 ET073TC1 一类面板所需的 `2W × H` 到 `W × 2H` 像素重排
 - 内置静态和动态测试画面，可以替代外部 MIPI 视频源
@@ -61,7 +77,7 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 ### JTAG / IO 排针
 
 <div align="center">
-  <img src="Assets/pinout_V2.jpg" alt="Pomo DriverBoard V2 JTAG 和 IO 排针定义" width="850">
+  <img src="Assets/pinout_V2.jpg" alt="Pomo V2 JTAG 和 IO 排针定义" width="850">
 </div>
 
 排针提供3.3 V、VBUS、GND 和四根 JTAG 信号。连接下载器前，请根据 PCB 上的 Pin 1 标记确认方向。
@@ -69,7 +85,7 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 ## 显示示例
 
 <div align="center">
-  <img src="Assets/example_V2.jpg" alt="Pomo DriverBoard V2 驱动墨水屏" width="850">
+  <img src="Assets/example_V2.jpg" alt="Pomo V2 驱动并口墨水屏" width="850">
 </div>
 
 ## 编译 V2 固件
@@ -117,7 +133,7 @@ physical(x, 2y + 1) = logical(2x + 1, y)
 
 ### 面板安全
 
-驱动裸墨水屏必须使用正确的波形 LUT、VCOM、电源时序和输出使能逻辑。分辨率不匹配或异常的视频流可能将错误数据移入有效区域之外的 Source 驱动。V2 会检测 MIPI FIFO 溢出和帧缓存异常，并在故障帧中关闭 Source/Gate 活动，但这些保护不能替代对面板规格书和驱动时序的核对。
+驱动并口墨水屏必须使用正确的波形 LUT、VCOM、电源时序和输出使能逻辑。分辨率不匹配或异常的视频流可能将错误数据移入有效区域之外的 Source 驱动。V2 会检测 MIPI FIFO 溢出和帧缓存异常，并在故障帧中关闭 Source/Gate 活动，但这些保护不能替代对面板规格书和驱动时序的核对。
 
 ## 仓库结构
 

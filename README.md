@@ -1,20 +1,36 @@
-# Pomo DriverBoard V2
+# Pomo
 
 [English](README.md) | [简体中文](README_CN.md)
 
-An open-source FPGA controller board that converts a 2-lane MIPI DSI video stream into source/gate timing for raw electrophoretic displays (EPDs).
-
-<div align="center">
-  <img src="Assets/Assembly_V2.PNG" alt="Pomo DriverBoard V2 assembly" width="720">
-</div>
+An open-source FPGA controller board that converts a 2-lane MIPI DSI video stream into source/gate timing for parallel-interface electrophoretic displays (EPDs).
 
 ## Overview
 
-Pomo V2 is the current hardware and firmware generation. It combines a Gowin GW1NSR-4C FPGA, a HyperRAM framebuffer, an EPD power-management circuit, and a 16-bit parallel source interface on one board. A Linux SBC or other MIPI DSI host supplies ordinary RGB888 video; the FPGA converts it into the waveform-driven pixel states and panel timing required by an E-Ink display.
+Pomo accepts ordinary RGB888 video from a Linux SBC or another MIPI DSI host and converts it into the waveform-driven pixel states and scanning signals required by a parallel-interface E-Ink display. Both generations use a Gowin GW1NSR-4C FPGA and a HyperRAM framebuffer.
 
-The design has been tested with Luckfox and Waveshare development boards. The MIPI connector may require a reverse FPC cable depending on the host board.
+## Versions
 
-V1 remains in this repository as the original 8-bit design, but new development targets V2.
+Pomo currently has two matching hardware and firmware generations:
+
+| | V1 | V2 |
+|---|---|---|
+| Status | Original version, retained for existing boards | Current version and active development target |
+| EPD Source bus | 8-bit, four 2-bit pixels per SDCLK | 16-bit, eight 2-bit pixels per SDCLK |
+| PMIC | TPS65185 | SY7636A by default; TPS65185 selectable in firmware |
+| Control pins | FPGA controls GDOE, SDOE, PMIC WAKEUP and VCOM control | GDOE/SDOE and PMIC auxiliary control are handled by hardware, freeing pins for D8–D15 |
+| Project paths | `Firmware/V1`, `Hardware/V1`, `Case/V1` | `Firmware/V2`, `Hardware/V2`, `Case/V2` |
+
+V1 and V2 bitstreams are not interchangeable because their EPD bus width, pin assignment, and PMIC control differ. Choose one generation and use its matching firmware, hardware, and mechanical files.
+
+## V2
+
+<div align="center">
+  <img src="Assets/Assembly_V2.PNG" alt="Pomo V2 assembly" width="720">
+</div>
+
+V2 combines the FPGA, HyperRAM, EPD power-management circuit, and 16-bit parallel Source interface on one board. It is the recommended starting point for new builds and the main focus of the documentation below.
+
+The MIPI input has been tested with Luckfox and Waveshare development boards. Depending on the host connector, a reverse FPC cable may be required.
 
 ## V2 highlights
 
@@ -22,7 +38,7 @@ V1 remains in this repository as the original 8-bit design, but new development 
 - Dynamically measured MIPI byte clock and runtime PLL output-divider selection
 - HyperRAM framebuffer for current and target pixel states
 - 16-bit EPD source bus: eight 2-bit drive pixels are loaded per SDCLK
-- Source and gate timing generation for raw EPD panels
+- Source and gate timing generation for parallel-interface EPD panels
 - Selectable SY7636A or TPS65185 PMIC control; V2 defaults to SY7636A
 - Optional `2W × H` to `W × 2H` pixel reorder for ET073TC1-style panel mappings
 - Built-in static and animated test patterns that can replace the MIPI source
@@ -61,7 +77,7 @@ The Altium source, schematic PDF, PCB layout, BOM, and pick-and-place files are 
 ### JTAG / I/O header
 
 <div align="center">
-  <img src="Assets/pinout_V2.jpg" alt="Pomo DriverBoard V2 JTAG and I/O header pinout" width="850">
+  <img src="Assets/pinout_V2.jpg" alt="Pomo V2 JTAG and I/O header pinout" width="850">
 </div>
 
 The header provides 3.3 V, VBUS, ground, and the four JTAG signals. Check orientation against the pin-1 marker before connecting a programmer.
@@ -69,7 +85,7 @@ The header provides 3.3 V, VBUS, ground, and the four JTAG signals. Check orient
 ## Example
 
 <div align="center">
-  <img src="Assets/example_V2.jpg" alt="Pomo DriverBoard V2 driving an E-Ink display" width="850">
+  <img src="Assets/example_V2.jpg" alt="Pomo V2 driving a parallel-interface E-Ink display" width="850">
 </div>
 
 ## Building the V2 firmware
@@ -117,7 +133,7 @@ Define `EPD_INTERNAL_TEST` to test a panel without a running MIPI source. The ge
 
 ### Panel safety
 
-Raw EPD panels require the correct waveform LUT, VCOM setting, supply sequence, and output-enable behavior. A mismatched resolution or malformed input stream can otherwise clock unintended data into areas outside the valid image. V2 detects MIPI FIFO overflow and framebuffer faults and suppresses source/gate activity for the affected frame, but this protection does not replace validation against the panel datasheet.
+Parallel-interface EPD panels require the correct waveform LUT, VCOM setting, supply sequence, and output-enable behavior. A mismatched resolution or malformed input stream can otherwise clock unintended data into areas outside the valid image. V2 detects MIPI FIFO overflow and framebuffer faults and suppresses source/gate activity for the affected frame, but this protection does not replace validation against the panel datasheet.
 
 ## Repository layout
 
