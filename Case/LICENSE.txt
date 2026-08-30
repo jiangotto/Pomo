@@ -1,7 +1,0 @@
-Copyright Yuhan Jiang 2025-2026
-
-The CAD files in this directory (enclosure, assembly, and mechanical models)
-are licensed under the CERN Open Hardware Licence Version 2 - Strongly
-Reciprocal (CERN-OHL-S v2).
-
-See the LICENSE file in the project root for the full license text.

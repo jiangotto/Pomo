@@ -1,103 +1,152 @@
-# Pomo
+# Pomo DriverBoard V2
 
-FPGA-based EPD (e-ink display) driver board.
+[English](README.md) | [简体中文](README_CN.md)
+
+An open-source FPGA controller board that converts a 2-lane MIPI DSI video stream into source/gate timing for raw electrophoretic displays (EPDs).
 
 <div align="center">
-  <img src="Assets/Assembly.PNG" alt="Pomo assembly" width="600">
+  <img src="Assets/Assembly_V2.PNG" alt="Pomo DriverBoard V2 assembly" width="720">
 </div>
 
 ## Overview
 
-Pomo is an open-source hardware project that drives E-Ink panels via MIPI DSI input. It uses a Gowin GW1NSR-4C FPGA and HyperRAM framebuffer. The MIPI input has been tested with **Luckfox** and **Waveshare** development boards, connected via a reverse FPC cable.
+Pomo V2 is the current hardware and firmware generation. It combines a Gowin GW1NSR-4C FPGA, a HyperRAM framebuffer, an EPD power-management circuit, and a 16-bit parallel source interface on one board. A Linux SBC or other MIPI DSI host supplies ordinary RGB888 video; the FPGA converts it into the waveform-driven pixel states and panel timing required by an E-Ink display.
 
-The repository contains two hardware and firmware generations. V1 is the original 8-bit EPD interface. V2 adds a 16-bit EPD source interface, SY7636A/TPS65185 PMIC selection, high-resolution timing support, an internal test-pattern generator, and additional MIPI/framebuffer fault protection. Use matching hardware and firmware versions.
+The design has been tested with Luckfox and Waveshare development boards. The MIPI connector may require a reverse FPC cable depending on the host board.
 
-The firmware is based on the [Caster](https://gitlab.com/zephray/Glider) EPDC design by Wenting Zhang, ported to the Gowin platform. The original Caster RTL was written for Xilinx Spartan-6 — key changes include replacing Xilinx IP cores (PLL, BRAM, FIFO) with Gowin equivalents, simplifying the pixel processing pipeline for standalone use without a CSR interface, and adding HyperRAM-based framebuffer support.
+V1 remains in this repository as the original 8-bit design, but new development targets V2.
 
-## Pinout
+## V2 highlights
+
+- 2-lane MIPI DSI RGB888 video input
+- Dynamically measured MIPI byte clock and runtime PLL output-divider selection
+- HyperRAM framebuffer for current and target pixel states
+- 16-bit EPD source bus: eight 2-bit drive pixels are loaded per SDCLK
+- Source and gate timing generation for raw EPD panels
+- Selectable SY7636A or TPS65185 PMIC control; V2 defaults to SY7636A
+- Optional `2W × H` to `W × 2H` pixel reorder for ET073TC1-style panel mappings
+- Built-in static and animated test patterns that can replace the MIPI source
+- Blue-noise dithering and multiple waveform/update modes
+- FIFO, framebuffer and frame-level fault detection with safe EPD output suppression
+- Wider horizontal timing counters for high-resolution panels such as 1216 × 684
+
+## Data path
+
+```text
+2-lane MIPI DSI
+      │
+      ▼
+Gowin D-PHY RX ──► DSI packet decode ──► RGB888 byte-to-pixel conversion
+                                              │
+                         optional pixel reorder / internal test source
+                                              │
+                                              ▼
+                               grayscale + dithering + waveform engine
+                                              │
+                                              ▼
+                                      HyperRAM framebuffer
+                                              │
+                                              ▼
+                           16-bit Source timing + Gate timing ──► EPD
+```
+
+The firmware is derived from the [Caster EPDC design](https://gitlab.com/zephray/Glider) by Wenting Zhang. The original Spartan-6 implementation was ported to Gowin, adapted to a HyperRAM framebuffer, and extended for MIPI input and standalone panel driving.
+
+## Hardware
+
+V2 exposes a 16-bit EPD data bus together with `SDCLK`, `SDLE`, `SDCE`, `GDCLK`, and `GDSP`. `GDOE` and `SDOE` are handled by pull-ups on the V2 board rather than FPGA pins. PMIC WAKEUP/VCOM control is likewise handled by the V2 hardware, leaving FPGA pins available for `EPD_D8` through `EPD_D15`.
+
+The Altium source, schematic PDF, PCB layout, BOM, and pick-and-place files are in [`Hardware/V2`](Hardware/V2). Do not use V1 firmware on V2 hardware or V2 firmware on V1 hardware: their EPD bus width, pin assignment, and PMIC control differ.
+
+### JTAG / I/O header
 
 <div align="center">
-  <img src="Assets/pinout.jpg" alt="PCB 12-pin header pinout" width="500">
+  <img src="Assets/pinout_V2.jpg" alt="Pomo DriverBoard V2 JTAG and I/O header pinout" width="850">
 </div>
+
+The header provides 3.3 V, VBUS, ground, and the four JTAG signals. Check orientation against the pin-1 marker before connecting a programmer.
 
 ## Example
 
 <div align="center">
-  <img src="Assets/example.jpg" alt="Pomo driving an EPD panel" width="500">
+  <img src="Assets/example_V2.jpg" alt="Pomo DriverBoard V2 driving an E-Ink display" width="850">
 </div>
 
-## Project Structure
+## Building the V2 firmware
 
+1. Open [`Firmware/V2/Pomo.gprj`](Firmware/V2/Pomo.gprj) in Gowin EDA V1.9.12.
+2. Edit [`Firmware/V2/src/defines.vh`](Firmware/V2/src/defines.vh) for the target PMIC, panel timing, source width, waveform mode, and VCOM voltage.
+3. Run **Synthesis → Place & Route → Generate Bitstream**.
+4. Program the FPGA through the JTAG header.
+
+The checked-in project uses the Gowin-generated MIPI D-PHY and asynchronous FIFO modules. Generated implementation output under `impl/` is intentionally excluded from version control.
+
+## V2 firmware configuration
+
+The main build-time switches are defined in [`Firmware/V2/src/defines.vh`](Firmware/V2/src/defines.vh):
+
+| Option | Purpose |
+|---|---|
+| `PMIC_SY7636A` | Keep defined for SY7636A; comment it out for TPS65185 |
+| `EPD_OUTPUT_WIDTH` | Select the EPD source output width; V2 hardware uses 16 |
+| `EPD_INTERNAL_TEST` | Replace the external MIPI stream with the internal video generator |
+| `EPD_TEST_PATTERN_MODE` | Select one of the static or animated internal test patterns |
+| `EPD_PIXEL_REORDER` | Convert a logical `2W × H` input into a physical `W × 2H` panel raster |
+| `DEFAULT_*` | Set the expected MIPI active area, sync and porch timing |
+| `DEFAULT_FPS` | Set the expected input frame rate used by the EPD control logic |
+| `VCOM_VOL` | Set panel VCOM in millivolts; always verify against the panel datasheet |
+| `CLEAR_FRAMES` | Set the final zero-based index of the startup clear sequence |
+| `LUT_FRAMES` | Set the waveform LUT length |
+
+The current example configuration is 1216 × 684 at 85 Hz, 16-bit source output, SY7636A, FAST MONO startup mode, and pixel reorder disabled. It is an example for the panel currently under development, not a universal setting.
+
+### Pixel reorder
+
+Some long-strip panels expose a physical raster different from the host-visible video raster. When `EPD_PIXEL_REORDER` is enabled, Pomo applies:
+
+```text
+physical(x, 2y)     = logical(2x,     y)
+physical(x, 2y + 1) = logical(2x + 1, y)
 ```
+
+For example, a 750 × 200 MIPI image becomes a 375 × 400 physical EPD image. Reorder mode requires an even input width, an even horizontal total, and a vertical front porch of at least one line. Horizontal padding is applied when the reordered source line does not fill the final output word.
+
+### Internal test source
+
+Define `EPD_INTERNAL_TEST` to test a panel without a running MIPI source. The generated video still passes through the normal reorder, dithering, waveform, framebuffer, and EPD timing pipeline. Available patterns include grayscale steps, bars, checkerboards, and moving regions for checking 16-level grayscale and dynamic update behavior.
+
+### Panel safety
+
+Raw EPD panels require the correct waveform LUT, VCOM setting, supply sequence, and output-enable behavior. A mismatched resolution or malformed input stream can otherwise clock unintended data into areas outside the valid image. V2 detects MIPI FIFO overflow and framebuffer faults and suppresses source/gate activity for the affected frame, but this protection does not replace validation against the panel datasheet.
+
+## Repository layout
+
+```text
 Pomo_DriverBoard/
 ├── Firmware/
-│   ├── V1/                    Firmware for the original 8-bit board
-│   │   ├── src/               Verilog source
-│   │   ├── waveform/          EPD waveform LUT files (.mi)
-│   │   ├── scripts/           Waveform conversion tools
-│   │   └── Pomo.gprj          Gowin EDA project file
-│   └── V2/                    Firmware for the 16-bit board
-│       ├── src/               Verilog source
-│       ├── waveform/          EPD waveform LUT files (.mi)
-│       ├── scripts/           Waveform conversion tools
-│       └── Pomo.gprj          Gowin EDA project file
+│   ├── V2/                    Current 16-bit Gowin firmware
+│   └── V1/                    Original 8-bit firmware archive
 ├── Hardware/
-│   ├── V1/                    Original 8-bit Altium design
-│   └── V2/                    16-bit Altium design and manufacturing files
-├── Case/                      Enclosure CAD files (SolidWorks / STEP)
-├── Assets/                    Images
+│   ├── V2/                    Current Altium design and manufacturing files
+│   └── V1/                    Original hardware archive
+├── Case/
+│   ├── V2/                    Current enclosure/model assets
+│   └── V1/                    Original enclosure/model archive
+├── Assets/                    README images
 └── LICENSE                    CERN-OHL-S v2
 ```
 
-## Building the Firmware
+## V1 compatibility
 
-Open the project matching your board in Gowin EDA V1.9.12:
-
-- V1 hardware: `Firmware/V1/Pomo.gprj`
-- V2 hardware: `Firmware/V2/Pomo.gprj`
-
-Run Synthesis → Place & Route → Generate Bitstream. Do not use a V1 bitstream on V2 hardware or a V2 bitstream on V1 hardware because their EPD data width, pin assignment, and PMIC control differ.
-
-### V2 configuration
-
-The main V2 build options are in `Firmware/V2/src/defines.vh`:
-
-| Option | Description |
-|--------|-------------|
-| `PMIC_SY7636A` | Defined for SY7636A; comment it out to build the TPS65185 path |
-| `EPD_OUTPUT_WIDTH` | Selects the 8-bit or 16-bit EPD source output path |
-| `EPD_INTERNAL_TEST` | Replaces the MIPI video stream with the internal test-pattern generator |
-| `EPD_TEST_PATTERN` | Selects the internal static/dynamic test pattern |
-
-V2 removes FPGA control of PMIC WAKEUP/VCOM and EPD GDOE/SDOE. These signals are handled by the V2 hardware design.
-
-## Adapting for Your Panel
-
-Edit `Firmware/V1/src/defines.vh` or `Firmware/V2/src/defines.vh`, depending on the board version:
-
-| Parameter | Description |
-|-----------|-------------|
-| `DEFAULT_VFP`, `DEFAULT_VSYNC`, `DEFAULT_VBP`, `DEFAULT_VACT` | Vertical timing |
-| `DEFAULT_HFP`, `DEFAULT_HSYNC`, `DEFAULT_HBP`, `DEFAULT_HACT` | Horizontal timing |
-| `VCOM_VOL` | VCOM voltage (check panel datasheet) |
-| `CLEAR_FRAMES` | Clear sequence frame count on init |
-| `LUT_FRAMES` | Number of frames in the waveform LUT |
-
-Select the waveform `.mi` file that matches your panel in the project settings. Panel configuration headers and waveform conversion scripts are stored inside the corresponding V1 or V2 firmware directory.
-
-## Future Work
-
-- Support different MIPI lane counts (currently 2-lane)
-- Support additional EPD panels
-- Add non-MIPI input interfaces (for example SPI)
+V1 is preserved under [`Firmware/V1`](Firmware/V1), [`Hardware/V1`](Hardware/V1), and [`Case/V1`](Case/V1). Open `Firmware/V1/Pomo.gprj` when building for the original 8-bit board. V1 and V2 bitstreams are not interchangeable.
 
 ## License
 
-Hardware and Firmware are licensed under the **CERN Open Hardware Licence Version 2 - Strongly Reciprocal (CERN-OHL-S v2)**. See [LICENSE](LICENSE).
+Pomo hardware and firmware are licensed under the **CERN Open Hardware Licence Version 2 – Strongly Reciprocal (CERN-OHL-S v2)**. See [LICENSE](LICENSE).
 
-Portions of the firmware are derived from the Caster project, originally released under CERN-OHL-P v2. See [Firmware/V1/LICENSE-CERN-OHL-P](Firmware/V1/LICENSE-CERN-OHL-P) and [Firmware/V2/LICENSE-CERN-OHL-P](Firmware/V2/LICENSE-CERN-OHL-P).
+Portions derived from Caster remain under CERN-OHL-P v2; see [`Firmware/V2/LICENSE-CERN-OHL-P`](Firmware/V2/LICENSE-CERN-OHL-P).
 
 ## Acknowledgments
 
-- [Wenting Zhang](https://gitlab.com/zephray) — Original Caster EPDC design
+- [Wenting Zhang](https://gitlab.com/zephray) — original Caster EPDC design
 - [CERN](https://cern.ch/cern-ohl) — CERN Open Hardware Licence
