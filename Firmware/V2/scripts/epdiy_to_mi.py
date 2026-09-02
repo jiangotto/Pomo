@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!python3
 """
 Convert epdiy waveform header files to Pomo/caster .mi BRAM format.
 
@@ -67,9 +67,12 @@ def parse_c_header(filepath):
     Returns:
         arrays: dict name → (phases, data) where data is a flat list of bytes
         modes:  dict name → mode_type
+        array_modes: dict data_array_name → (mode_type, range_index)
         temp_ranges: list of (min, max) tuples
     """
-    with open(filepath, "r") as f:
+    # Waveform Studio emits UTF-8 source.  Using the platform default encoding
+    # breaks on Windows installations whose default code page is GBK.
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         content = f.read()
 
     # --- Extract data arrays: name[phases][16][4] = {{{...}}} ---
@@ -98,8 +101,20 @@ def parse_c_header(filepath):
         literal = content[start:end]
         hex_bytes = [int(v, 16) for v in re.findall(r"0x([0-9a-fA-F]{2})", literal)]
         expected = phases * 16 * 4
-        if len(hex_bytes) != expected:
-            print(f"  WARNING: {name}: expected {expected} bytes, got {len(hex_bytes)}")
+        if len(hex_bytes) < expected:
+            # C zero-initializes missing aggregate members.  Mirror that
+            # behavior so a partially initialized final phase is converted in
+            # exactly the same way as epdiy compiles it.
+            missing = expected - len(hex_bytes)
+            print(
+                f"  WARNING: {name}: expected {expected} bytes, got "
+                f"{len(hex_bytes)}; padding {missing} trailing zero bytes"
+            )
+            hex_bytes.extend([0] * missing)
+        elif len(hex_bytes) > expected:
+            raise ValueError(
+                f"{name}: expected {expected} bytes, got {len(hex_bytes)}"
+            )
         arrays[name] = (phases, hex_bytes)
 
     # --- Extract mode type from EpdWaveformMode structs ---
@@ -109,21 +124,71 @@ def parse_c_header(filepath):
         name, type_str = m
         modes[name] = int(type_str)
 
+    # Resolve the actual C object graph instead of guessing the mode from an
+    # array name.  Waveform Studio names such as my_gc_25_0 use "25" as a
+    # temperature label, whereas older epdiy exports often put the numeric
+    # mode ID in that position.
+    phase_to_array = {}
+    phase_pattern = (
+        r"(?:const\s+)?EpdWaveformPhases\s+(\w+)\s*=\s*\{(.*?)\};"
+    )
+    for phase_name, body in re.findall(phase_pattern, content, re.DOTALL):
+        lut_match = re.search(
+            r"\.luts\s*=\s*[^;]*?&?(\w+_data)(?:\[0\])?", body
+        )
+        if lut_match:
+            phase_to_array[phase_name] = lut_match.group(1)
+
+    range_members = {}
+    range_pattern = (
+        r"(?:const\s+)?EpdWaveformPhases\s*\*\s*(\w+)\s*\[\s*\d+\s*\]"
+        r"\s*=\s*\{(.*?)\};"
+    )
+    for range_name, body in re.findall(range_pattern, content, re.DOTALL):
+        range_members[range_name] = re.findall(r"&\s*(\w+)", body)
+
+    array_modes = {}
+    mode_struct_pattern = (
+        r"(?:const\s+)?EpdWaveformMode\s+(\w+)\s*=\s*\{(.*?)\};"
+    )
+    for mode_name, body in re.findall(mode_struct_pattern, content, re.DOTALL):
+        type_match = re.search(r"\.type\s*=\s*(\d+)", body)
+        range_match = re.search(
+            r"\.range_data\s*=\s*&\s*(\w+)(?:\[0\])?", body
+        )
+        if not type_match or not range_match:
+            continue
+        mode_id = int(type_match.group(1))
+        for range_idx, phase_name in enumerate(
+            range_members.get(range_match.group(1), [])
+        ):
+            array_name = phase_to_array.get(phase_name)
+            if array_name:
+                array_modes[array_name] = (mode_id, range_idx)
+
     # --- Extract temperature intervals ---
     temp_pattern = r"\.min\s*=\s*(-?\d+)\s*,\s*\.max\s*=\s*(-?\d+)"
     temp_ranges = [(int(a), int(b)) for a, b in re.findall(temp_pattern, content)]
 
-    return arrays, modes, temp_ranges
+    return arrays, modes, array_modes, temp_ranges
 
 
-def group_by_mode(arrays):
+def group_by_mode(arrays, array_modes=None):
     """Group data arrays by mode ID.
 
     Array naming convention: epd_wp_{panel}_{mode_id}_{range_index}_data
     Returns: dict mode_id → list of (range_idx, name, phases, data)
     """
     by_mode = {}
+    array_modes = array_modes or {}
     for name, (phases, data) in arrays.items():
+        if name in array_modes:
+            mode_id, range_idx = array_modes[name]
+            by_mode.setdefault(mode_id, []).append(
+                (range_idx, name, phases, data)
+            )
+            continue
+
         # Strip _data suffix if present
         base = name.replace("_data", "") if name.endswith("_data") else name
         parts = base.rsplit("_", 2)
@@ -134,9 +199,7 @@ def group_by_mode(arrays):
             # Try to parse mode from the mode structs (handled separately)
             continue
 
-        if mode_id not in by_mode:
-            by_mode[mode_id] = []
-        by_mode[mode_id].append((range_idx, name, phases, data))
+        by_mode.setdefault(mode_id, []).append((range_idx, name, phases, data))
     return by_mode
 
 
@@ -161,6 +224,11 @@ def convert_to_caster(data, num_phases):
     Returns:
         bytearray of 4096 bytes in caster BRAM layout
     """
+    if not 0 <= num_phases <= 64:
+        raise ValueError(
+            f"waveform has {num_phases} phases; FPGA LUT supports at most 64"
+        )
+
     bram = bytearray(BRAM_DEPTH)
 
     for p in range(num_phases):
@@ -360,7 +428,9 @@ def main():
     if input_path.is_file():
         h_files = [input_path]
     elif input_path.is_dir():
-        h_files = sorted(input_path.glob("*.h"))
+        h_files = sorted(
+            list(input_path.glob("*.h")) + list(input_path.glob("*.c"))
+        )
     else:
         print(f"ERROR: {args.input} not found")
         sys.exit(1)
@@ -372,13 +442,15 @@ def main():
     # Collect all data across files
     all_arrays = {}
     all_modes = {}
+    all_array_modes = {}
     all_temp_ranges = []
 
     for h_file in h_files:
         print(f"Parsing: {h_file.name}")
-        arrays, modes, temp_ranges = parse_c_header(str(h_file))
+        arrays, modes, array_modes, temp_ranges = parse_c_header(str(h_file))
         all_arrays.update(arrays)
         all_modes.update(modes)
+        all_array_modes.update(array_modes)
         if temp_ranges:
             all_temp_ranges = temp_ranges  # use last one
 
@@ -396,7 +468,7 @@ def main():
             print(f"  [{i}] {tmin}C to {tmax}C")
 
     # Group data by mode ID
-    by_mode = group_by_mode(all_arrays)
+    by_mode = group_by_mode(all_arrays, all_array_modes)
 
     if args.list:
         print(f"\nModes found:")
@@ -456,7 +528,10 @@ def main():
             write_csv(combined, str(output_dir / "autolut.csv"), combined_phases)
 
     print(f"\nDone. Output in: {output_dir}")
-    print("Copy the .mi files to src/ and update wvfmlut.v's INIT_FILE if needed.")
+    print(
+        "Copy the selected .mi file to Firmware/V2/waveform, update "
+        "gowin_prom_lut16.ipc MEM_FILE, and set LUT_FRAMES to its phase count."
+    )
 
 
 if __name__ == "__main__":

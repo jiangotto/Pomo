@@ -17,6 +17,7 @@
 //   5: black reference background + central vertical stripes invert
 //   6: black reference background + central rectangle toggles black/white
 //   7: comprehensive EPD test: 16 gray levels, moving bar and dynamic checker
+//   8: static full-screen 16-level grayscale bars (black to white)
 //
 // Recommended diagnostic use:
 //   1) Clock this module from mipi_pclk to bypass MIPI data lanes/parser
@@ -120,6 +121,10 @@ module internal_video_gen #(
         x_pos[PATTERN_BLOCK_LOG2] ^
         y_pos[PATTERN_BLOCK_LOG2] ^
         phase;
+
+    // Keep the intermediate explicitly wide so Gowin does not report the
+    // intentional 4-bit grayscale result as an implicit truncation.
+    wire [31:0] grayscale_level = (x_pos * 16) / H_ACTIVE;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -244,6 +249,15 @@ module internal_video_gen #(
                     else begin
                         pixel = checker_phase ? 4'h0 : 4'hF;
                     end
+                end
+
+                8: begin
+                    // Full-screen 16-level grayscale reference. Each vertical
+                    // bar covers approximately 1/16 of the active width, with
+                    // black at the left and white at the right. This pattern
+                    // is static and therefore does not depend on phase or
+                    // TOGGLE_FRAMES.
+                    pixel = grayscale_level[3:0];
                 end
 
                 default: begin

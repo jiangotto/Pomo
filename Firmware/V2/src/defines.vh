@@ -36,7 +36,7 @@
 // passes through pixel reorder (when enabled), dithering, waveform processing,
 // framebuffer and the normal EPD output path.
 //`define EPD_INTERNAL_TEST
-`define EPD_TEST_PATTERN_MODE       6
+`define EPD_TEST_PATTERN_MODE       8
 `define EPD_TEST_PATTERN_FPS        85
 `define EPD_TEST_CHANGE_FRAMES      85
 `define EPD_TEST_SYS_CLK_HZ         27000000
@@ -100,7 +100,7 @@
 // 32 startup frames: 14 black, 2 no-drive, 14 white, 2 no-drive.
 // CLEAR_FRAMES is the final zero-based frame index.
 `define CLEAR_FRAMES        10'd31
-`define LUT_FRAMES          6'd43
+`define LUT_FRAMES          6'd48
 
 // === 默认启动模式（选一个取消注释）===
 `define INIT_MODE_FAST_MONO
@@ -114,4 +114,4 @@
 // === DYFRC ===
 `define DEFAULT_MINDRV      2'd2    // DYFRC 默认值（caster CSR_MINDVR）
 
-`define VCOM_VOL            13'd2000 // 1310; 2250;
+`define VCOM_VOL            13'd1330 // 1310; 2250;

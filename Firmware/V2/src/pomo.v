@@ -76,8 +76,9 @@ module pomo (
 	// Streaming safety monitor
 	// -------------------------------------------------------------------------
 	// The framebuffer interface has no backpressure toward the MIPI source.
-	// Track requests which have not produced a response and kill the current
-	// frame before a prolonged underflow can latch a short/random Source line.
+	// Track requests which have not produced a response for diagnostics. These
+	// flags must never gate an active EPD scan because a partial Source/Gate
+	// transfer is more harmful than reporting the fault at the frame boundary.
 	localparam [11:0] MEM_OUTSTANDING_LIMIT = 12'd512;
 	reg [11:0] mem_outstanding;
 	(* syn_keep = 1 *) reg frame_fault;
@@ -95,8 +96,7 @@ module pomo (
 		end else begin
 			if (vin_vsync_rise) begin
 				mem_outstanding <= 12'd0;
-				// Do not briefly re-enable gate/source clocks at the frame
-				// boundary while an upstream fault is still asserted.
+				// Sample upstream state at the frame boundary for diagnostics.
 				frame_fault     <= vin_stream_fault || fb_wr_full;
 			end else begin
 				case ({bi_de, bi_den})
@@ -491,8 +491,11 @@ reg        s4_dith_1b;
 	);
 
 	// Output
-	assign pixel_comb = (frame_valid && !frame_fault) ? proc_output : 2'b00;
-	assign bo_pixel_comb = (frame_valid && !frame_fault) ? proc_bo : proc_bi;
+	// Fault signals are diagnostic only. Never truncate an EPD scan in the
+	// middle of a line or frame; doing so leaves the Source/Gate ICs partially
+	// loaded and can corrupt the visible image.
+	assign pixel_comb = frame_valid ? proc_output : 2'b00;
+	assign bo_pixel_comb = frame_valid ? proc_bo : proc_bi;
 
 	reg [1:0] current_pixel;
 	always @(posedge clk) begin
@@ -600,38 +603,30 @@ reg        s4_dith_1b;
 //      end
 //  end
 
-	// ============================================================
-	// Source data packing and SDCLK generation
-	// ============================================================
-	// Four 2-bit drive values form one legacy 8-bit Source word. In 16-bit
-	// mode two consecutive words share one SDCLK. This remains a distinct
-	// registered pipeline section even though it lives inside pomo.v.
+	// Source output is selected statically at synthesis time. Both branches
+	// keep active and current_pixel at the same pipeline depth and register
+	// SDCLK, so epd_data has the setup interval of the verified implementation.
 	wire [15:0] epd_data_r;
-	wire        s5_extra_pending;
 	wire        source_sdclk;
-	localparam integer SOURCE_PAD_PARTIAL =
-`ifdef EPD_AUTO_HPAD
-		1;
-`else
-		0;
-`endif
+	wire        s5_extra_pending;
 
 	generate
 	if (`EPD_OUTPUT_WIDTH == 16) begin : gen_source_tx16
-		reg [1:0] pix_count;
-		reg [7:0] shift;
-		reg       active;
-		reg       active_d;
-		reg [1:0] drive;
-		reg [7:0] half_word;
-		reg       half_valid;
+		reg [1:0]  pix_count;
+		reg [7:0]  shift;
+		reg        active;
+		reg        active_d;
+		reg [7:0]  half_word;
+		reg        half_valid;
 		reg [15:0] data_r;
-		reg [1:0] pulse_count;
-		reg       extra_pending;
+		reg [1:0]  clk_delay_count;
+		reg        extra_pending;
+		reg        sdclk_r;
 
 		wire line_fall = active_d && !active;
-		wire [7:0] completed_word = {shift[5:0], drive};
+		wire [7:0] complete_word = {shift[5:0], current_pixel};
 		reg [7:0] partial_word;
+
 		always @(*) begin
 			case (pix_count)
 				2'd1: partial_word = {shift[1:0], 6'b0};
@@ -642,88 +637,102 @@ reg        s4_dith_1b;
 		end
 
 		always @(posedge clk) begin
-			if (rst || frame_fault) begin
-				pix_count     <= 2'd0;
-				shift         <= 8'h00;
-				active        <= 1'b0;
-				active_d      <= 1'b0;
-				drive         <= 2'b00;
-				half_word     <= 8'h00;
-				half_valid    <= 1'b0;
-				data_r        <= 16'h0000;
-				pulse_count   <= 2'd0;
-				extra_pending <= 1'b0;
+			if (rst) begin
+				pix_count       <= 2'd0;
+				shift           <= 8'h00;
+				active          <= 1'b0;
+				active_d        <= 1'b0;
+				half_word       <= 8'h00;
+				half_valid      <= 1'b0;
+				data_r          <= 16'h0000;
+				clk_delay_count <= 2'd0;
+				extra_pending   <= 1'b0;
+				sdclk_r         <= 1'b0;
 			end else begin
-				// Preserve the former Stage-5 alignment boundary.
-				active   <= s4_active;
 				active_d <= active;
-				drive    <= current_pixel;
+				active   <= s4_active;
+				sdclk_r <= (clk_delay_count != 2'd0) &&
+				           (clk_delay_count <= 2'd2);
 
-				if (pulse_count != 2'd0) begin
-					pulse_count <= pulse_count - 2'd1;
-					if ((pulse_count == 2'd1) && extra_pending) begin
-						extra_pending <= 1'b0;
-						pulse_count   <= 2'd3;
+				if (line_fall) begin
+`ifdef EPD_AUTO_HPAD
+					if (pix_count != 2'd0) begin
+						data_r <= half_valid ?
+						          {half_word, partial_word} :
+						          {partial_word, 8'h00};
+						half_valid      <= 1'b0;
+						clk_delay_count <= 2'd3;
+						extra_pending   <= 1'b1;
+					end else if (half_valid) begin
+						data_r          <= {half_word, 8'h00};
+						half_valid      <= 1'b0;
+						clk_delay_count <= 2'd3;
+						extra_pending   <= 1'b1;
+					end else if (clk_delay_count != 2'd0) begin
+						extra_pending <= 1'b1;
+					end else begin
+						clk_delay_count <= 2'd3;
+					end
+`else
+					if (half_valid) begin
+						data_r          <= {half_word, 8'h00};
+						half_valid      <= 1'b0;
+						clk_delay_count <= 2'd3;
+						extra_pending   <= 1'b1;
+					end else if (clk_delay_count != 2'd0) begin
+						extra_pending <= 1'b1;
+					end else begin
+						clk_delay_count <= 2'd3;
+					end
+`endif
+				end
+
+				if (clk_delay_count != 2'd0) begin
+					clk_delay_count <= clk_delay_count - 2'd1;
+					if ((clk_delay_count == 2'd1) && extra_pending) begin
+						extra_pending   <= 1'b0;
+						clk_delay_count <= 2'd3;
 					end
 				end
 
 				if (active) begin
-					shift <= {shift[5:0], drive};
+					shift <= {shift[5:0], current_pixel};
 					if (pix_count == 2'd3) begin
 						pix_count <= 2'd0;
 						if (half_valid) begin
-							data_r      <= {half_word, completed_word};
-							half_valid  <= 1'b0;
-							pulse_count <= 2'd3;
+							data_r          <= {half_word, complete_word};
+							half_valid      <= 1'b0;
+							clk_delay_count <= 2'd3;
 						end else begin
-							half_word  <= completed_word;
+							half_word  <= complete_word;
 							half_valid <= 1'b1;
 						end
 					end else begin
 						pix_count <= pix_count + 2'd1;
 					end
-				end
-
-				if (line_fall) begin
+				end else begin
 					pix_count <= 2'd0;
-					if ((pix_count != 2'd0) && (SOURCE_PAD_PARTIAL != 0)) begin
-						data_r <= half_valid ?
-						          {half_word, partial_word} :
-						          {partial_word, 8'h00};
-						half_valid    <= 1'b0;
-						pulse_count   <= 2'd3;
-						extra_pending <= 1'b1;
-					end else if (half_valid) begin
-						data_r         <= {half_word, 8'h00};
-						half_valid     <= 1'b0;
-						pulse_count    <= 2'd3;
-						extra_pending  <= 1'b1;
-					end else if (pulse_count != 2'd0) begin
-						extra_pending <= 1'b1;
-					end else begin
-						pulse_count <= 2'd3;
-					end
 				end
 			end
 		end
 
 		assign epd_data_r = data_r;
-		assign source_sdclk = (pulse_count != 2'd0) &&
-		                      (pulse_count <= 2'd2);
+		assign source_sdclk = sdclk_r;
 		assign s5_extra_pending = extra_pending;
 	end else begin : gen_source_tx8
-		reg [1:0] pix_count;
-		reg [7:0] shift;
-		reg       active;
-		reg       active_d;
-		reg [1:0] drive;
+		reg [1:0]  pix_count;
+		reg [7:0]  shift;
+		reg        active;
+		reg        active_d;
 		reg [15:0] data_r;
-		reg [1:0] pulse_count;
-		reg       extra_pending;
+		reg [1:0]  clk_delay_count;
+		reg        extra_pending;
+		reg        sdclk_r;
 
 		wire line_fall = active_d && !active;
-		wire [7:0] completed_word = {shift[5:0], drive};
+		wire [7:0] complete_word = {shift[5:0], current_pixel};
 		reg [7:0] partial_word;
+
 		always @(*) begin
 			case (pix_count)
 				2'd1: partial_word = {shift[1:0], 6'b0};
@@ -734,57 +743,71 @@ reg        s4_dith_1b;
 		end
 
 		always @(posedge clk) begin
-			if (rst || frame_fault) begin
-				pix_count     <= 2'd0;
-				shift         <= 8'h00;
-				active        <= 1'b0;
-				active_d      <= 1'b0;
-				drive         <= 2'b00;
-				data_r        <= 16'h0000;
-				pulse_count   <= 2'd0;
-				extra_pending <= 1'b0;
+			if (rst) begin
+				pix_count       <= 2'd0;
+				shift           <= 8'h00;
+				active          <= 1'b0;
+				active_d        <= 1'b0;
+				data_r          <= 16'h0000;
+				clk_delay_count <= 2'd0;
+				extra_pending   <= 1'b0;
+				sdclk_r         <= 1'b0;
 			end else begin
-				active   <= s4_active;
 				active_d <= active;
-				drive    <= current_pixel;
-				if (pulse_count != 2'd0) begin
-					pulse_count <= pulse_count - 2'd1;
-					if ((pulse_count == 2'd1) && extra_pending) begin
-						extra_pending <= 1'b0;
-						pulse_count   <= 2'd3;
+				active   <= s4_active;
+				sdclk_r <= (clk_delay_count != 2'd0) &&
+				           (clk_delay_count <= 2'd2);
+
+				if (line_fall) begin
+`ifdef EPD_AUTO_HPAD
+					if (pix_count != 2'd0) begin
+						data_r          <= {8'h00, partial_word};
+						clk_delay_count <= 2'd3;
+						extra_pending   <= 1'b1;
+					end else if (clk_delay_count != 2'd0) begin
+						extra_pending <= 1'b1;
+					end else begin
+						clk_delay_count <= 2'd3;
+					end
+`else
+					if (clk_delay_count != 2'd0) begin
+						extra_pending <= 1'b1;
+					end else begin
+						clk_delay_count <= 2'd3;
+					end
+`endif
+				end
+
+				if (clk_delay_count != 2'd0) begin
+					clk_delay_count <= clk_delay_count - 2'd1;
+					if ((clk_delay_count == 2'd1) && extra_pending) begin
+						extra_pending   <= 1'b0;
+						clk_delay_count <= 2'd3;
 					end
 				end
+
 				if (active) begin
-					shift <= {shift[5:0], drive};
+					shift <= {shift[5:0], current_pixel};
 					if (pix_count == 2'd3) begin
-						pix_count    <= 2'd0;
-						data_r       <= {8'h00, completed_word};
-						pulse_count  <= 2'd3;
+						pix_count       <= 2'd0;
+						data_r          <= {8'h00, complete_word};
+						clk_delay_count <= 2'd3;
 					end else begin
 						pix_count <= pix_count + 2'd1;
 					end
-				end
-				if (line_fall) begin
+				end else begin
 					pix_count <= 2'd0;
-					if ((pix_count != 2'd0) && (SOURCE_PAD_PARTIAL != 0)) begin
-						data_r         <= {8'h00, partial_word};
-						pulse_count    <= 2'd3;
-						extra_pending  <= 1'b1;
-					end else if (pulse_count != 2'd0) begin
-						extra_pending <= 1'b1;
-					end else begin
-						pulse_count <= 2'd3;
-					end
 				end
 			end
 		end
 
 		assign epd_data_r = data_r;
-		assign source_sdclk = (pulse_count != 2'd0) &&
-		                      (pulse_count <= 2'd2);
+		assign source_sdclk = sdclk_r;
 		assign s5_extra_pending = extra_pending;
 	end
 	endgenerate
+
+	assign epd_sdclk = source_sdclk;
 
 	// ============================================================
 	// EPD Drive 
@@ -889,13 +912,12 @@ reg        s4_dith_1b;
 		.din(epd_gdclk_pre),
 		.dout(epd_gdclk_dl)
 	);
-	assign epd_gdclk = frame_fault ? 1'b0 : epd_gdclk_dl;
-	assign epd_gdsp = (!frame_fault && epd_vsync) ? 1'b0 : 1'b1;
-	assign epd_sdclk = frame_fault ? 1'b0 : source_sdclk;
-	assign epd_sdle = (!frame_fault && epd_hsync && epd_vact_le) ? 1'b1 : 1'b0;
+	assign epd_gdclk = epd_gdclk_dl;
+	assign epd_gdsp = epd_vsync ? 1'b0 : 1'b1;
+	assign epd_sdle = (epd_hsync && epd_vact_le) ? 1'b1 : 1'b0;
 	// A padded partial word is real source data. Keep SDCE selected for it;
 	// s5_extra_pending clears before the following dummy SDCLK.
-	assign epd_sdce = (!frame_fault && (epd_act || s5_extra_pending)) ? 1'b0 : 1'b1;
-	assign epd_data  = frame_fault ? 16'h0000 : epd_data_r;
+	assign epd_sdce = (epd_act || s5_extra_pending) ? 1'b0 : 1'b1;
+	assign epd_data = epd_data_r;
 
 endmodule
