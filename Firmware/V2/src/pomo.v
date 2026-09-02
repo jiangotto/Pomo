@@ -41,6 +41,17 @@ module pomo (
 	output wire [15:0]  epd_data,
 	output wire         epd_sdce
 );
+	// sys_ready combines PMIC state from sys_clk with HyperRAM calibration
+	// state from the memory domain.  Synchronize the resulting stable level
+	// before it controls any state in this pixel-clock domain.
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [1:0] sys_ready_sync;
+	always @(posedge clk) begin
+		if (rst)
+			sys_ready_sync <= 2'b00;
+		else
+			sys_ready_sync <= {sys_ready_sync[0], sys_ready};
+	end
+	wire sys_ready_clk = sys_ready_sync[1];
 
 	// ============================================================
 	// Scan Control
@@ -151,7 +162,7 @@ module pomo (
 				else
 					al_framecnt <= al_framecnt - 6'd1;
 			end else if ((frame_first_line && vin_hsync_rise) || (vsync_just_hit && vin_hsync)) begin
-				frame_valid      <= sys_ready;
+				frame_valid      <= sys_ready_clk;
 				frame_first_line <= 1'b0;
 				scan_v_cnt       <= 11'd0;
 			end else if (frame_valid && vin_hsync_rise) begin
@@ -260,7 +271,7 @@ module pomo (
 		end else begin
 			case (init_state)
 				INIT_IDLE: begin
-					if (sys_ready && vin_vsync_rise)
+					if (sys_ready_clk && vin_vsync_rise)
 						init_state <= INIT_CLEARING;
 				end
 				INIT_CLEARING: begin

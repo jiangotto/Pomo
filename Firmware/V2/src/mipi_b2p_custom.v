@@ -85,7 +85,6 @@ module mipi_b2p_custom #(
 	wire [7:0] b0 = i_payload[7:0];     // lane0 byte
 	wire [7:0] b1 = i_payload[15:8];    // lane1 byte
 
-	wire [15:0] wc_now = i_lp_av_en ? i_wc : wc_remain;
 	wire        in_pkt = i_lp_av_en || (wc_remain > 0);
 
 	always @(posedge clk_byte) begin
@@ -109,7 +108,10 @@ module mipi_b2p_custom #(
 			end
 
 			if (in_pkt && (lane0_vld || lane1_vld)) begin
-				if (lane0_vld && lane1_vld && (wc_now >= 2)) begin
+				// PAYLOAD_DV already qualifies each byte from the protocol parser.
+				// Rechecking WC here was redundant and put the 16-bit packet word
+				// count comparator on every pixel_buf/fifo_wr data path.
+				if (lane0_vld && lane1_vld) begin
 					// 2 bytes this beat
 					wc_remain <= i_lp_av_en ? (i_wc - 16'd2) : (wc_remain - 16'd2);
 					case (byte_pos)
@@ -161,15 +163,36 @@ module mipi_b2p_custom #(
 	wire        fifo_empty;
 	wire        fifo_full;
 	wire [23:0] fifo_q;
-	wire        fifo_overflow = fifo_wr && fifo_full;
+
+	// The Gowin FIFO synchronizes its common reset internally in both clock
+	// domains.  Keep all accesses disabled for four local clocks after the
+	// corresponding domain reset has been released, allowing its reset state
+	// and Gray pointers to settle before normal traffic starts.
+	reg [3:0] fifo_wr_startup;
+	reg [3:0] fifo_rd_startup;
+	always @(posedge clk_byte or negedge rst_n_byte) begin
+		if (!rst_n_byte)
+			fifo_wr_startup <= 4'b0000;
+		else
+			fifo_wr_startup <= {fifo_wr_startup[2:0], 1'b1};
+	end
+	always @(posedge clk_pixel or negedge rst_n_pixel) begin
+		if (!rst_n_pixel)
+			fifo_rd_startup <= 4'b0000;
+		else
+			fifo_rd_startup <= {fifo_rd_startup[2:0], 1'b1};
+	end
+	wire fifo_wr_ready = fifo_wr_startup[3];
+	wire fifo_rd_ready = fifo_rd_startup[3];
+	wire fifo_overflow = fifo_wr_ready && fifo_wr && fifo_full;
 
 	FIFO_HS_MIPI_Top u_fifo(
 		.Data   (pixel_buf), //input [23:0] Data
 		.Reset  (!rst_n_byte), //input Reset
 		.WrClk  (clk_byte), //input WrClk
 		.RdClk  (clk_pixel), //input RdClk
-		.WrEn   (fifo_wr && !fifo_full), //input WrEn
-		.RdEn   (!fifo_empty), //input RdEn
+		.WrEn   (fifo_wr_ready && fifo_wr && !fifo_full), //input WrEn
+		.RdEn   (fifo_rd_ready && !fifo_empty), //input RdEn
 		.Q      (fifo_q), //output [23:0] Q
 		.Empty  (fifo_empty), //output Empty
 		.Full   (fifo_full) //output Full
@@ -283,7 +306,7 @@ module mipi_b2p_custom #(
 		if (!rst_n_pixel) begin
 			o_empty_count <= 16'd0;
 			empty_seen    <= 1'b0;
-		end else if (!packet_active_sync[1] || !fifo_empty) begin
+		end else if (!fifo_rd_ready || !packet_active_sync[1] || !fifo_empty) begin
 			empty_seen <= 1'b0;
 		end else if (!empty_seen) begin
 			empty_seen <= 1'b1;
@@ -299,7 +322,7 @@ module mipi_b2p_custom #(
 		if (!rst_n_pixel)
 			o_de_r <= 1'b0;
 		else
-			o_de_r <= !fifo_empty;
+			o_de_r <= fifo_rd_ready && !fifo_empty;
 	end
 	assign o_de = o_de_r;
 

@@ -262,6 +262,36 @@ module vin_mipi (
 	assign v_pclk = clk_pixel_out;
 
 	// =========================================================================
+	// Byte/pixel-domain reset release
+	// =========================================================================
+	// pixel_pll_ready is generated in the 27 MHz reference-clock domain.  It
+	// may assert or deassert at any phase of clk_byte_out and clk_pixel_out.
+	// Assert reset asynchronously so loss of PLL readiness takes effect at
+	// once, but release it through a separate three-stage synchronizer in each
+	// destination domain.  Downstream logic therefore never observes an
+	// asynchronous reset release edge.
+	wire domain_reset_n_async = rst_n & pixel_pll_ready;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] byte_reset_sync;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] pixel_reset_sync;
+
+	always @(posedge clk_byte_out or negedge domain_reset_n_async) begin
+		if (!domain_reset_n_async)
+			byte_reset_sync <= 3'b000;
+		else
+			byte_reset_sync <= {byte_reset_sync[1:0], 1'b1};
+	end
+
+	always @(posedge clk_pixel_out or negedge domain_reset_n_async) begin
+		if (!domain_reset_n_async)
+			pixel_reset_sync <= 3'b000;
+		else
+			pixel_reset_sync <= {pixel_reset_sync[1:0], 1'b1};
+	end
+
+	wire rst_n_byte_sync  = byte_reset_sync[2];
+	wire rst_n_pixel_sync = pixel_reset_sync[2];
+
+	// =========================================================================
 	// Byte stream -> 1-pixel RGB888 stream
 	// =========================================================================
 //  wire o_dt_err;
@@ -296,7 +326,7 @@ module vin_mipi (
 		.VSYNC_LINES (`DEFAULT_VSYNC)    // vsync pulse width in pixel clocks
 	) u_pixel_converter (
 		.clk_byte       (clk_byte_out),
-		.rst_n_byte     (rst_n & pixel_pll_ready),
+		.rst_n_byte     (rst_n_byte_sync),
 		.i_sp_en        (o_sp_en_dl),        // o_sp_en & ecc_ok
 		.i_lp_av_en     (o_lp_av_en_dl),     // o_lp_av_en & ecc_ok
 		.i_dt           (o_dt_dl),
@@ -304,7 +334,7 @@ module vin_mipi (
 		.i_payload      (o_payload_dl),      // 2 bytes per beat (2-lane 1:8)
 		.i_payload_dv   (o_payload_dv_dl),   // byte-valid per payload byte
 		.clk_pixel      (clk_pixel_out),
-		.rst_n_pixel    (rst_n & pixel_pll_ready),
+		.rst_n_pixel    (rst_n_pixel_sync),
 		.o_vsync        (conv_vsync),
 		.o_hsync        (conv_hsync),
 		.o_de           (conv_de),
@@ -341,8 +371,8 @@ module vin_mipi (
 	reg        prev_conv_vsync;
 	reg        prev_conv_de;
 
-	always @(posedge clk_pixel_out or negedge rst_n) begin
-		if (!rst_n) begin
+	always @(posedge clk_pixel_out or negedge rst_n_pixel_sync) begin
+		if (!rst_n_pixel_sync) begin
 			prev_conv_vsync <= 1'b0;
 			prev_conv_de    <= 1'b0;
 			frm_de_cnt      <= 10'd0;
@@ -357,8 +387,8 @@ module vin_mipi (
 		end
 	end
 
-	always @(posedge clk_pixel_out or negedge rst_n) begin
-		if (!rst_n) begin
+	always @(posedge clk_pixel_out or negedge rst_n_pixel_sync) begin
+		if (!rst_n_pixel_sync) begin
 			v_pixel_dl <= 4'd0;
 			v_vsync_dl <= 1'b0;
 			v_hsync_dl <= 1'b0;

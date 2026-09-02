@@ -221,13 +221,19 @@ module pixel_processing (
 	// Let it optimize, only 4b in and 4b out used
 	assign proc_pixel_linear = {proc_pixel, 4'b0};
 
-	wire [3:0] proc_vin =
-		(pixel_basemode == BASEMODE_FAST_GREY) ? (proc_pixel_linear[7:4]) :
-		(pixel_dither == DITHER_NONE)    ? (proc_pixel) :
-		(pixel_dither == DITHER_BN_1BIT) ? ({4{proc_p_n1}}) :
-		(pixel_dither == DITHER_BN_4BIT) ? (proc_p_n4) : 4'd0;
+	// The linearized 4-bit input is exactly proc_pixel in bits [7:4].  Decode
+	// only the two modes which actually substitute dither data here.  Routing
+	// proc_vin through pixel_basemode -> pixel_dither -> a second mux put the
+	// mode bits on the longest Pixel-clock path before the state-machine mux.
+	// This direct decode is logically identical but removes that cascaded mux.
+	wire use_dither_1b = (pixel_mode == MODE_FAST_MONO_BLUE_NOISE);
+	wire use_dither_4b =
+		(pixel_mode_hi == MODE_MANUAL_LUT_BLUE_NOISE) ||
+		(pixel_mode == MODE_AUTO_LUT_BLUE_NOISE);
+	wire [3:0] proc_vin = use_dither_1b ? {4{proc_p_n1}} :
+	                       use_dither_4b ? proc_p_n4 : proc_pixel;
 
-	wire [3:0] proc_vinnd = proc_pixel_linear[7:4];
+	wire [3:0] proc_vinnd = proc_pixel;
 
 	`define NO_DRIVE     2'b00
 	`define DRIVE_BLACK  2'b01
