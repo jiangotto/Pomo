@@ -521,6 +521,386 @@ module pomo (
 		bo_data <= bo_pixel_comb;
 	end
 
+
+`ifdef EPD_CASTER_TIMING
+	// ============================================================
+	// Caster-style EPD output timing
+	// ============================================================
+	// Caster does not obtain panel timing by delaying the input raster.  Its
+	// Source/Gate interface has its own sequencer and a rate adapter between
+	// the processing pipeline and the physical data bus.  Pomo processes one
+	// pixel per clock (Caster processes four), so retain one completed line in
+	// a small distributed RAM and then transmit 4/8 pixels per Source clock.
+	// The single buffer is safe because the output reader is at least twice
+	// times faster than the writer after the first word has been captured.
+	localparam integer SOURCE_PIXELS_PER_UNIT =
+		(`EPD_OUTPUT_WIDTH == 16) ? 8 : 4;
+	localparam integer SOURCE_LINE_WORDS = (`EPD_HACT + 7) / 8;
+	localparam integer SOURCE_LINE_UNITS =
+		(`EPD_HACT + SOURCE_PIXELS_PER_UNIT - 1) /
+		 SOURCE_PIXELS_PER_UNIT;
+	localparam integer EPD_HTOTAL = `DEFAULT_HFP + `DEFAULT_HSYNC +
+	                                 `DEFAULT_HBP + `DEFAULT_HACT;
+	localparam integer EPD_VTOTAL = `DEFAULT_VFP + `DEFAULT_VSYNC +
+	                                 `DEFAULT_VBP + `DEFAULT_VACT;
+	localparam integer EPD_CLK_KHZ =
+		((EPD_HTOTAL * EPD_VTOTAL * `DEFAULT_FPS) + 999) / 1000;
+	// E0470A01: GCLK <= 200 kHz and both levels >= 1 us. A symmetric
+	// 5-us pulse period satisfies both requirements at the maximum target FPS.
+	localparam integer GATE_HALF_CYCLES =
+		((EPD_CLK_KHZ * 2500) + 999999) / 1000000;
+	// Eight clocks provide margin over the 3.5 * tCY requirement when one
+	// Source-clock period is two pixel clocks.
+	localparam integer SOURCE_LE_ON_CYCLES = 8;
+	localparam integer SOURCE_LE_HIGH_CYCLES =
+		((EPD_CLK_KHZ * 300) + 999999) / 1000000;
+	localparam integer SOURCE_LE_OFF_CYCLES =
+		((EPD_CLK_KHZ * 200) + 999999) / 1000000;
+	localparam integer GATE_START_PULSES = `EPD_GATE_START_PULSES;
+	localparam integer GATE_PREAMBLE_PULSES =
+		`EPD_GATE_START_PULSES + `EPD_GATE_SETTLE_PULSES;
+
+	// 1216 pixels require only 2432 bits. Gowin expands a distributed array of
+	// this shape into thousands of DFFs, so use the remaining BSRAM explicitly.
+	(* RAM_STYLE = "BLOCK" *) reg [15:0] source_line_mem
+		[0:SOURCE_LINE_WORDS-1];
+	reg [15:0] source_capture_shift;
+	reg [11:0] source_capture_pixel;
+	reg [10:0] source_capture_word;
+	reg        source_line_toggle;
+	reg        source_line_frame;
+	reg        source_input_frame;
+	reg [10:0] source_mem_read_addr;
+	reg [15:0] source_mem_read_data;
+
+	function [15:0] source_pad_word;
+		input [15:0] raw_word;
+		input [2:0]  last_slot;
+		begin
+			case (last_slot)
+				3'd0: source_pad_word = {raw_word[1:0], 14'b0};
+				3'd1: source_pad_word = {raw_word[3:0], 12'b0};
+				3'd2: source_pad_word = {raw_word[5:0], 10'b0};
+				3'd3: source_pad_word = {raw_word[7:0], 8'b0};
+				3'd4: source_pad_word = {raw_word[9:0], 6'b0};
+				3'd5: source_pad_word = {raw_word[11:0], 4'b0};
+				3'd6: source_pad_word = {raw_word[13:0], 2'b0};
+				default: source_pad_word = raw_word;
+			endcase
+		end
+	endfunction
+
+	wire [15:0] source_capture_next =
+		{source_capture_shift[13:0], pixel_comb};
+	wire source_capture_last =
+		(source_capture_pixel == (`EPD_HACT - 1));
+	wire source_capture_word_last =
+		(source_capture_pixel[2:0] == 3'd7);
+
+	always @(posedge clk) begin
+		if (rst) begin
+			source_capture_shift <= 16'd0;
+			source_capture_pixel <= 12'd0;
+			source_capture_word  <= 11'd0;
+			source_line_toggle   <= 1'b0;
+			source_line_frame    <= 1'b0;
+			source_input_frame   <= 1'b0;
+			source_mem_read_data <= 16'd0;
+		end else begin
+			// Synchronous read port. Keeping read and write in this one clocked
+			// process allows Gowin to infer a simple-dual-port BSRAM.
+			source_mem_read_data <= source_line_mem[source_mem_read_addr];
+			if (vin_vsync_rise) begin
+				source_input_frame   <= ~source_input_frame;
+				source_capture_pixel <= 12'd0;
+				source_capture_word  <= 11'd0;
+			end
+
+			if (s4_active) begin
+				source_capture_shift <= source_capture_next;
+				if (source_capture_word_last || source_capture_last) begin
+					source_line_mem[source_capture_word] <=
+						source_pad_word(source_capture_next,
+						                source_capture_pixel[2:0]);
+					if (!source_capture_last)
+						source_capture_word <= source_capture_word + 11'd1;
+				end
+
+				if (source_capture_last) begin
+					source_capture_pixel <= 12'd0;
+					source_capture_word  <= 11'd0;
+					source_line_frame    <= source_input_frame;
+					source_line_toggle   <= ~source_line_toggle;
+				end else begin
+					source_capture_pixel <= source_capture_pixel + 12'd1;
+				end
+			end
+		end
+	end
+
+	localparam [4:0]
+		EPD_OUT_IDLE          = 5'd0,
+		EPD_OUT_PRE_LOW       = 5'd1,
+		EPD_OUT_PRE_HIGH      = 5'd2,
+		EPD_OUT_WAIT_LINE     = 5'd3,
+		EPD_OUT_SHIFT_LOAD    = 5'd4,
+		EPD_OUT_SHIFT_HIGH    = 5'd5,
+		EPD_OUT_SHIFT_FALL    = 5'd6,
+		EPD_OUT_DUMMY_HIGH    = 5'd7,
+		EPD_OUT_DUMMY_FALL    = 5'd8,
+		EPD_OUT_LE_DELAY      = 5'd9,
+		EPD_OUT_LE_HIGH       = 5'd10,
+		EPD_OUT_LE_OFF        = 5'd11,
+		EPD_OUT_GATE_HIGH     = 5'd12,
+		EPD_OUT_GATE_LOW      = 5'd13,
+		EPD_OUT_WAIT_FRAME    = 5'd14,
+		EPD_OUT_SHIFT_WAIT    = 5'd15;
+
+	reg [4:0]  epd_out_state;
+	reg [9:0]  epd_out_timer;
+	reg [7:0]  epd_preamble_count;
+	reg [11:0] epd_source_unit;
+	reg [11:0] epd_output_line;
+	reg        source_line_consumed;
+	reg        epd_drive_frame;
+	reg        epd_seen_frame;
+	reg        epd_gdclk_r;
+	reg        epd_gdsp_r;
+	reg        epd_sdclk_r;
+	reg        epd_sdle_r;
+	reg        epd_sdce_r;
+	reg [15:0] epd_data_r;
+
+	wire [15:0] source_read_data =
+		(`EPD_OUTPUT_WIDTH == 16) ? source_mem_read_data :
+		(epd_source_unit[0] ? {8'd0, source_mem_read_data[7:0]} :
+		                      {8'd0, source_mem_read_data[15:8]});
+	wire [11:0] source_next_unit = epd_source_unit + 12'd1;
+	wire [10:0] source_next_word_addr =
+		(`EPD_OUTPUT_WIDTH == 16) ? source_next_unit[10:0] :
+		                              source_next_unit[11:1];
+	wire [15:0] source_next_data =
+		(`EPD_OUTPUT_WIDTH == 16) ? source_mem_read_data :
+		(source_next_unit[0] ? {8'd0, source_mem_read_data[7:0]} :
+		                       {8'd0, source_mem_read_data[15:8]});
+	wire [11:0] source_after_next_unit = epd_source_unit + 12'd2;
+	wire [10:0] source_after_next_word_addr =
+		(`EPD_OUTPUT_WIDTH == 16) ? source_after_next_unit[10:0] :
+		                              source_after_next_unit[11:1];
+
+	always @(posedge clk) begin
+		if (rst || !sys_ready_clk) begin
+			epd_out_state        <= EPD_OUT_IDLE;
+			epd_out_timer        <= 10'd0;
+			epd_preamble_count   <= 8'd0;
+			epd_source_unit      <= 12'd0;
+			source_mem_read_addr <= 11'd0;
+			epd_output_line      <= 12'd0;
+			source_line_consumed <= 1'b0;
+			epd_drive_frame      <= 1'b0;
+			epd_seen_frame       <= 1'b0;
+			epd_gdclk_r          <= 1'b0;
+			epd_gdsp_r           <= 1'b1;
+			epd_sdclk_r          <= 1'b0;
+			epd_sdle_r           <= 1'b0;
+			epd_sdce_r           <= 1'b1;
+			epd_data_r           <= 16'd0;
+		end else begin
+			// The first observed MIPI frame has no preceding HFP/VFP history.
+			// Discard it, then start every later panel frame from a complete
+			// blanking interval and discard any stale buffered line.
+			if (vin_vsync_rise) begin
+				if (!epd_seen_frame) begin
+					epd_seen_frame <= 1'b1;
+				end else begin
+					epd_out_state        <= EPD_OUT_PRE_LOW;
+					epd_out_timer        <= 10'd0;
+					epd_preamble_count   <= 8'd0;
+					epd_output_line      <= 12'd0;
+					source_line_consumed <= source_line_toggle;
+					epd_drive_frame      <= ~source_input_frame;
+					epd_gdclk_r          <= 1'b0;
+					epd_gdsp_r           <= 1'b0;
+					epd_sdclk_r          <= 1'b0;
+					epd_sdle_r           <= 1'b0;
+					epd_sdce_r           <= 1'b1;
+				end
+			end else begin
+				case (epd_out_state)
+				EPD_OUT_IDLE: begin
+					epd_gdclk_r <= 1'b0;
+					epd_sdclk_r <= 1'b0;
+					epd_sdle_r  <= 1'b0;
+					epd_sdce_r  <= 1'b1;
+				end
+
+				EPD_OUT_PRE_LOW: begin
+					epd_gdclk_r <= 1'b0;
+					epd_gdsp_r <=
+						(epd_preamble_count < GATE_START_PULSES) ?
+						1'b0 : 1'b1;
+					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
+						epd_out_timer <= 10'd0;
+						epd_gdclk_r   <= 1'b1;
+						epd_out_state <= EPD_OUT_PRE_HIGH;
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_PRE_HIGH: begin
+					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
+						epd_out_timer <= 10'd0;
+						epd_gdclk_r   <= 1'b0;
+						if (epd_preamble_count ==
+						    (GATE_PREAMBLE_PULSES - 1)) begin
+							epd_gdsp_r   <= 1'b1;
+							epd_out_state <= EPD_OUT_WAIT_LINE;
+						end else begin
+							epd_preamble_count <=
+								epd_preamble_count + 8'd1;
+							epd_out_state <= EPD_OUT_PRE_LOW;
+						end
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_WAIT_LINE: begin
+					epd_sdclk_r <= 1'b0;
+					epd_sdle_r  <= 1'b0;
+					epd_sdce_r  <= 1'b1;
+					if (source_line_toggle != source_line_consumed) begin
+						source_line_consumed <= source_line_toggle;
+						if (source_line_frame == epd_drive_frame) begin
+							epd_source_unit      <= 12'd0;
+							source_mem_read_addr <= 11'd0;
+							epd_out_state        <= EPD_OUT_SHIFT_WAIT;
+						end
+					end
+				end
+
+				EPD_OUT_SHIFT_WAIT: begin
+					// One cycle for the synchronous BSRAM read port.
+					epd_out_state <= EPD_OUT_SHIFT_LOAD;
+				end
+
+				EPD_OUT_SHIFT_LOAD: begin
+					epd_data_r     <= source_read_data;
+					epd_sdce_r     <= 1'b0;
+					epd_sdclk_r    <= 1'b0;
+					if (SOURCE_LINE_UNITS > 1)
+						source_mem_read_addr <= source_next_word_addr;
+					epd_out_state  <= EPD_OUT_SHIFT_HIGH;
+				end
+
+				EPD_OUT_SHIFT_HIGH: begin
+					epd_sdclk_r   <= 1'b1;
+					epd_out_state <= EPD_OUT_SHIFT_FALL;
+				end
+
+				EPD_OUT_SHIFT_FALL: begin
+					epd_sdclk_r <= 1'b0;
+					if (epd_source_unit == (SOURCE_LINE_UNITS - 1)) begin
+						// Preserve the required extra clock, but issue it with STL/
+						// SDCE inactive so it cannot shift a black word into the row.
+						epd_sdce_r    <= 1'b1;
+						epd_data_r    <= 16'd0;
+						epd_out_state <= EPD_OUT_DUMMY_HIGH;
+					end else begin
+						epd_source_unit      <= source_next_unit;
+						epd_data_r            <= source_next_data;
+						source_mem_read_addr <= source_after_next_word_addr;
+						epd_out_state        <= EPD_OUT_SHIFT_HIGH;
+					end
+				end
+
+				EPD_OUT_DUMMY_HIGH: begin
+					epd_sdclk_r   <= 1'b1;
+					epd_out_state <= EPD_OUT_DUMMY_FALL;
+				end
+
+				EPD_OUT_DUMMY_FALL: begin
+					epd_sdclk_r   <= 1'b0;
+					epd_out_timer <= 10'd0;
+					epd_out_state <= EPD_OUT_LE_DELAY;
+				end
+
+				EPD_OUT_LE_DELAY: begin
+					if (epd_out_timer >= (SOURCE_LE_ON_CYCLES - 1)) begin
+						epd_out_timer <= 10'd0;
+						epd_sdle_r    <= 1'b1;
+						epd_out_state <= EPD_OUT_LE_HIGH;
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_LE_HIGH: begin
+					if (epd_out_timer >= (SOURCE_LE_HIGH_CYCLES - 1)) begin
+						epd_out_timer <= 10'd0;
+						epd_sdle_r    <= 1'b0;
+						epd_out_state <= EPD_OUT_LE_OFF;
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_LE_OFF: begin
+					if (epd_out_timer >= (SOURCE_LE_OFF_CYCLES - 1)) begin
+						epd_out_timer <= 10'd0;
+						epd_gdclk_r   <= 1'b1;
+						epd_out_state <= EPD_OUT_GATE_HIGH;
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_GATE_HIGH: begin
+					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
+						epd_out_timer <= 10'd0;
+						epd_gdclk_r   <= 1'b0;
+						epd_out_state <= EPD_OUT_GATE_LOW;
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_GATE_LOW: begin
+					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
+						epd_out_timer   <= 10'd0;
+						if (epd_output_line == (`EPD_VACT - 1)) begin
+							epd_out_state <= EPD_OUT_WAIT_FRAME;
+						end else begin
+							epd_output_line <= epd_output_line + 12'd1;
+							epd_out_state <= EPD_OUT_WAIT_LINE;
+						end
+					end else begin
+						epd_out_timer <= epd_out_timer + 10'd1;
+					end
+				end
+
+				EPD_OUT_WAIT_FRAME: begin
+					epd_gdclk_r <= 1'b0;
+					epd_sdclk_r <= 1'b0;
+					epd_sdle_r  <= 1'b0;
+					epd_sdce_r  <= 1'b1;
+				end
+
+				default: epd_out_state <= EPD_OUT_IDLE;
+				endcase
+			end
+		end
+	end
+
+	assign epd_gdclk = epd_gdclk_r;
+	assign epd_gdsp  = epd_gdsp_r;
+	assign epd_sdclk = epd_sdclk_r;
+	assign epd_sdle  = epd_sdle_r;
+	assign epd_sdce  = epd_sdce_r;
+	assign epd_data  = epd_data_r;
+
+`else
 	// ============================================================
 	// Stage 5 — shift / pack 4 pixels into 1 byte
 	// ============================================================
@@ -938,4 +1318,5 @@ module pomo (
 	assign epd_sdce = (epd_act || s5_extra_pending) ? 1'b0 : 1'b1;
 	assign epd_data = epd_data_r;
 
+`endif
 endmodule
