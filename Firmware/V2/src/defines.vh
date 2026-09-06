@@ -30,18 +30,6 @@
 // words and emits one SDCLK for eight pixels, following the Caster approach.
 `define EPD_OUTPUT_WIDTH    16
 
-// Generate the panel timing from the completed pixel stream instead of
-// delaying MIPI HSYNC/DE by a fixed number of pixel clocks.  This uses a
-// one-line BSRAM-backed buffer and Caster-style Source/Gate sequencing.
-`define EPD_CASTER_TIMING
-
-// Panel-side Gate preamble. These are deliberately independent of the MIPI
-// vertical porches: a video VBP is not automatically a Gate-driver clock.
-// The defaults preserve Pomo's previously verified sequence (VSYNC start
-// clocks followed directly by the active Gate clocks).
-`define EPD_GATE_START_PULSES  `DEFAULT_VSYNC
-`define EPD_GATE_SETTLE_PULSES 0
-
 // === Internal video test source ===
 // Uncomment EPD_INTERNAL_TEST to build a self-contained test bitstream which
 // does not require a MIPI clock or data source. The generated raster still
