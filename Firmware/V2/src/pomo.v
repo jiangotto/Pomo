@@ -462,28 +462,20 @@ module pomo (
 	reg        s4_active;
 	reg [15:0] s4_bi_pixel;
 	reg [3:0]  s4_vin_pixel;
-	reg [3:0]  s4_proc_vin;
-
-	// Select the dithered value before the Stage 4 register boundary.  The
-	// original pixel is retained separately because Auto-LUT also needs the
-	// undithered input.  This moves the mode/dither mux out of the long pixel
-	// state-machine path without adding a pipeline cycle.
-	wire [3:0] s3_pixel_mode = s3_bi_pixel[15:12];
-	wire       s3_use_dither_1b = (s3_pixel_mode == 4'hA);
-	wire       s3_use_dither_4b =
-		(s3_bi_pixel[15:14] == 2'b01) || (s3_pixel_mode == 4'hD);
-	wire [3:0] s3_proc_vin = s3_use_dither_1b ? {4{s3_dith_1b}} :
-	                            s3_use_dither_4b ? s3_dith_4b : s3_vin_pixel;
+reg        s4_dith_1b;
+	reg [3:0]  s4_dith_4b;
 
 	always @(posedge clk) begin
 		if (rst) begin
 			s4_active <= 1'b0;
-			s4_proc_vin <= 4'd0;
+			s4_dith_1b  <= 1'b0;
+			s4_dith_4b  <= 4'd0;
 		end else begin
 			s4_active    <= s3_active;
 			s4_bi_pixel  <= s3_bi_pixel;
 			s4_vin_pixel <= s3_vin_pixel;
-			s4_proc_vin  <= s3_proc_vin;
+			s4_dith_1b <= s3_dith_1b;
+			s4_dith_4b <= s3_dith_4b;
 		end
 	end
 
@@ -499,13 +491,14 @@ module pomo (
 	pixel_processing u_pixel_processing(
 		.sys_mode(sys_mode),
 		.proc_pixel(proc_pixel),
-		.proc_vin(s4_proc_vin),
 		.proc_bi(proc_bi),
 		.proc_bo(proc_bo),
 		.proc_lut_rd(proc_lut_rd),
 		.proc_output(proc_output),
 		.al_framecnt(al_framecnt),
-		.clear_frame_cnt(clear_frame_cnt)
+		.clear_frame_cnt(clear_frame_cnt),
+		.proc_p_n1  (s4_dith_1b),
+		.proc_p_n4  (s4_dith_4b)
 	);
 
 	// Output
