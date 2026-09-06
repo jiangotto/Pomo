@@ -186,7 +186,6 @@ module pomo (
 	// scan region signals
 	// vertical: counter-based
 	// horizontal: signal-based (vin_hsync, vin_de)
-	wire scan_in_vfp;
 	wire scan_in_vsync;
 	wire scan_in_vbp;
 	wire scan_in_vact;
@@ -195,11 +194,15 @@ module pomo (
 	wire scan_in_hact;
 	wire scan_in_act;
 
-	assign scan_in_vfp   = frame_valid && (scan_v_cnt >= VSYNC + VBP + VACT);
 	assign scan_in_vsync = vin_vsync;
 	assign scan_in_vbp   = frame_valid && (scan_v_cnt >= VSYNC) && (scan_v_cnt < VSYNC + VBP);
 	assign scan_in_vact  = frame_valid && (scan_v_cnt >= VSYNC + VBP) && (scan_v_cnt < VSYNC + VBP + VACT);
-	assign scan_in_vact_le  = frame_valid && (scan_v_cnt >= VSYNC + VBP + 1) && (scan_v_cnt < VSYNC + VBP + VACT + 1);
+	// Pomo streams a completed Source row into the panel one line before it is
+	// latched.  Keep the established next-line window; Caster obtains the same
+	// relationship from the phase of its own free-running scan counter.
+	assign scan_in_vact_le = frame_valid &&
+		(scan_v_cnt >= VSYNC + VBP + 1) &&
+		(scan_v_cnt < VSYNC + VBP + VACT + 1);
 	assign scan_in_hsync = vin_hsync;
 	assign scan_in_hact  = vin_de;
 	assign scan_in_act   = scan_in_vact && scan_in_hact;
@@ -521,802 +524,121 @@ module pomo (
 		bo_data <= bo_pixel_comb;
 	end
 
-
-`ifdef EPD_CASTER_TIMING
 	// ============================================================
-	// Caster-style EPD output timing
+	// Caster Source/Gate output, adapted only for one pixel per clock
 	// ============================================================
-	// Caster does not obtain panel timing by delaying the input raster.  Its
-	// Source/Gate interface has its own sequencer and a rate adapter between
-	// the processing pipeline and the physical data bus.  Pomo processes one
-	// pixel per clock (Caster processes four), so retain one completed line in
-	// a small distributed RAM and then transmit 4/8 pixels per Source clock.
-	// The single buffer is safe because the output reader is at least twice
-	// times faster than the writer after the first word has been captured.
-	localparam integer SOURCE_PIXELS_PER_UNIT =
-		(`EPD_OUTPUT_WIDTH == 16) ? 8 : 4;
-	localparam integer SOURCE_LINE_WORDS = (`EPD_HACT + 7) / 8;
-	localparam integer SOURCE_LINE_UNITS =
-		(`EPD_HACT + SOURCE_PIXELS_PER_UNIT - 1) /
-		 SOURCE_PIXELS_PER_UNIT;
-	localparam integer EPD_HTOTAL = `DEFAULT_HFP + `DEFAULT_HSYNC +
-	                                 `DEFAULT_HBP + `DEFAULT_HACT;
-	localparam integer EPD_VTOTAL = `DEFAULT_VFP + `DEFAULT_VSYNC +
-	                                 `DEFAULT_VBP + `DEFAULT_VACT;
-	localparam integer EPD_CLK_KHZ =
-		((EPD_HTOTAL * EPD_VTOTAL * `DEFAULT_FPS) + 999) / 1000;
-	// E0470A01: GCLK <= 200 kHz and both levels >= 1 us. A symmetric
-	// 5-us pulse period satisfies both requirements at the maximum target FPS.
-	localparam integer GATE_HALF_CYCLES =
-		((EPD_CLK_KHZ * 2500) + 999999) / 1000000;
-	// Eight clocks provide margin over the 3.5 * tCY requirement when one
-	// Source-clock period is two pixel clocks.
-	localparam integer SOURCE_LE_ON_CYCLES = 8;
-	localparam integer SOURCE_LE_HIGH_CYCLES =
-		((EPD_CLK_KHZ * 300) + 999999) / 1000000;
-	localparam integer SOURCE_LE_OFF_CYCLES =
-		((EPD_CLK_KHZ * 200) + 999999) / 1000000;
-	localparam integer GATE_START_PULSES = `EPD_GATE_START_PULSES;
-	localparam integer GATE_PREAMBLE_PULSES =
-		`EPD_GATE_START_PULSES + `EPD_GATE_SETTLE_PULSES;
-
-	// 1216 pixels require only 2432 bits. Gowin expands a distributed array of
-	// this shape into thousands of DFFs, so use the remaining BSRAM explicitly.
-	(* RAM_STYLE = "BLOCK" *) reg [15:0] source_line_mem
-		[0:SOURCE_LINE_WORDS-1];
-	reg [15:0] source_capture_shift;
-	reg [11:0] source_capture_pixel;
-	reg [10:0] source_capture_word;
-	reg        source_line_toggle;
-	reg        source_line_frame;
-	reg        source_input_frame;
-	reg [10:0] source_mem_read_addr;
-	reg [15:0] source_mem_read_data;
-
-	function [15:0] source_pad_word;
-		input [15:0] raw_word;
-		input [2:0]  last_slot;
-		begin
-			case (last_slot)
-				3'd0: source_pad_word = {raw_word[1:0], 14'b0};
-				3'd1: source_pad_word = {raw_word[3:0], 12'b0};
-				3'd2: source_pad_word = {raw_word[5:0], 10'b0};
-				3'd3: source_pad_word = {raw_word[7:0], 8'b0};
-				3'd4: source_pad_word = {raw_word[9:0], 6'b0};
-				3'd5: source_pad_word = {raw_word[11:0], 4'b0};
-				3'd6: source_pad_word = {raw_word[13:0], 2'b0};
-				default: source_pad_word = raw_word;
-			endcase
-		end
-	endfunction
-
-	wire [15:0] source_capture_next =
-		{source_capture_shift[13:0], pixel_comb};
-	wire source_capture_last =
-		(source_capture_pixel == (`EPD_HACT - 1));
-	wire source_capture_word_last =
-		(source_capture_pixel[2:0] == 3'd7);
-
-	always @(posedge clk) begin
-		if (rst) begin
-			source_capture_shift <= 16'd0;
-			source_capture_pixel <= 12'd0;
-			source_capture_word  <= 11'd0;
-			source_line_toggle   <= 1'b0;
-			source_line_frame    <= 1'b0;
-			source_input_frame   <= 1'b0;
-			source_mem_read_data <= 16'd0;
-		end else begin
-			// Synchronous read port. Keeping read and write in this one clocked
-			// process allows Gowin to infer a simple-dual-port BSRAM.
-			source_mem_read_data <= source_line_mem[source_mem_read_addr];
-			if (vin_vsync_rise) begin
-				source_input_frame   <= ~source_input_frame;
-				source_capture_pixel <= 12'd0;
-				source_capture_word  <= 11'd0;
-			end
-
-			if (s4_active) begin
-				source_capture_shift <= source_capture_next;
-				if (source_capture_word_last || source_capture_last) begin
-					source_line_mem[source_capture_word] <=
-						source_pad_word(source_capture_next,
-						                source_capture_pixel[2:0]);
-					if (!source_capture_last)
-						source_capture_word <= source_capture_word + 11'd1;
-				end
-
-				if (source_capture_last) begin
-					source_capture_pixel <= 12'd0;
-					source_capture_word  <= 11'd0;
-					source_line_frame    <= source_input_frame;
-					source_line_toggle   <= ~source_line_toggle;
-				end else begin
-					source_capture_pixel <= source_capture_pixel + 12'd1;
-				end
-			end
-		end
-	end
-
-	localparam [4:0]
-		EPD_OUT_IDLE          = 5'd0,
-		EPD_OUT_PRE_LOW       = 5'd1,
-		EPD_OUT_PRE_HIGH      = 5'd2,
-		EPD_OUT_WAIT_LINE     = 5'd3,
-		EPD_OUT_SHIFT_LOAD    = 5'd4,
-		EPD_OUT_SHIFT_HIGH    = 5'd5,
-		EPD_OUT_SHIFT_FALL    = 5'd6,
-		EPD_OUT_DUMMY_HIGH    = 5'd7,
-		EPD_OUT_DUMMY_FALL    = 5'd8,
-		EPD_OUT_LE_DELAY      = 5'd9,
-		EPD_OUT_LE_HIGH       = 5'd10,
-		EPD_OUT_LE_OFF        = 5'd11,
-		EPD_OUT_GATE_HIGH     = 5'd12,
-		EPD_OUT_GATE_LOW      = 5'd13,
-		EPD_OUT_WAIT_FRAME    = 5'd14,
-		EPD_OUT_SHIFT_WAIT    = 5'd15;
-
-	reg [4:0]  epd_out_state;
-	reg [9:0]  epd_out_timer;
-	reg [7:0]  epd_preamble_count;
-	reg [11:0] epd_source_unit;
-	reg [11:0] epd_output_line;
-	reg        source_line_consumed;
-	reg        epd_drive_frame;
-	reg        epd_seen_frame;
-	reg        epd_gdclk_r;
-	reg        epd_gdsp_r;
-	reg        epd_sdclk_r;
-	reg        epd_sdle_r;
-	reg        epd_sdce_r;
-	reg [15:0] epd_data_r;
-
-	wire [15:0] source_read_data =
-		(`EPD_OUTPUT_WIDTH == 16) ? source_mem_read_data :
-		(epd_source_unit[0] ? {8'd0, source_mem_read_data[7:0]} :
-		                      {8'd0, source_mem_read_data[15:8]});
-	wire [11:0] source_next_unit = epd_source_unit + 12'd1;
-	wire [10:0] source_next_word_addr =
-		(`EPD_OUTPUT_WIDTH == 16) ? source_next_unit[10:0] :
-		                              source_next_unit[11:1];
-	wire [15:0] source_next_data =
-		(`EPD_OUTPUT_WIDTH == 16) ? source_mem_read_data :
-		(source_next_unit[0] ? {8'd0, source_mem_read_data[7:0]} :
-		                       {8'd0, source_mem_read_data[15:8]});
-	wire [11:0] source_after_next_unit = epd_source_unit + 12'd2;
-	wire [10:0] source_after_next_word_addr =
-		(`EPD_OUTPUT_WIDTH == 16) ? source_after_next_unit[10:0] :
-		                              source_after_next_unit[11:1];
-
-	always @(posedge clk) begin
-		if (rst || !sys_ready_clk) begin
-			epd_out_state        <= EPD_OUT_IDLE;
-			epd_out_timer        <= 10'd0;
-			epd_preamble_count   <= 8'd0;
-			epd_source_unit      <= 12'd0;
-			source_mem_read_addr <= 11'd0;
-			epd_output_line      <= 12'd0;
-			source_line_consumed <= 1'b0;
-			epd_drive_frame      <= 1'b0;
-			epd_seen_frame       <= 1'b0;
-			epd_gdclk_r          <= 1'b0;
-			epd_gdsp_r           <= 1'b1;
-			epd_sdclk_r          <= 1'b0;
-			epd_sdle_r           <= 1'b0;
-			epd_sdce_r           <= 1'b1;
-			epd_data_r           <= 16'd0;
-		end else begin
-			// The first observed MIPI frame has no preceding HFP/VFP history.
-			// Discard it, then start every later panel frame from a complete
-			// blanking interval and discard any stale buffered line.
-			if (vin_vsync_rise) begin
-				if (!epd_seen_frame) begin
-					epd_seen_frame <= 1'b1;
-				end else begin
-					epd_out_state        <= EPD_OUT_PRE_LOW;
-					epd_out_timer        <= 10'd0;
-					epd_preamble_count   <= 8'd0;
-					epd_output_line      <= 12'd0;
-					source_line_consumed <= source_line_toggle;
-					epd_drive_frame      <= ~source_input_frame;
-					epd_gdclk_r          <= 1'b0;
-					epd_gdsp_r           <= 1'b0;
-					epd_sdclk_r          <= 1'b0;
-					epd_sdle_r           <= 1'b0;
-					epd_sdce_r           <= 1'b1;
-				end
-			end else begin
-				case (epd_out_state)
-				EPD_OUT_IDLE: begin
-					epd_gdclk_r <= 1'b0;
-					epd_sdclk_r <= 1'b0;
-					epd_sdle_r  <= 1'b0;
-					epd_sdce_r  <= 1'b1;
-				end
-
-				EPD_OUT_PRE_LOW: begin
-					epd_gdclk_r <= 1'b0;
-					epd_gdsp_r <=
-						(epd_preamble_count < GATE_START_PULSES) ?
-						1'b0 : 1'b1;
-					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
-						epd_out_timer <= 10'd0;
-						epd_gdclk_r   <= 1'b1;
-						epd_out_state <= EPD_OUT_PRE_HIGH;
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_PRE_HIGH: begin
-					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
-						epd_out_timer <= 10'd0;
-						epd_gdclk_r   <= 1'b0;
-						if (epd_preamble_count ==
-						    (GATE_PREAMBLE_PULSES - 1)) begin
-							epd_gdsp_r   <= 1'b1;
-							epd_out_state <= EPD_OUT_WAIT_LINE;
-						end else begin
-							epd_preamble_count <=
-								epd_preamble_count + 8'd1;
-							epd_out_state <= EPD_OUT_PRE_LOW;
-						end
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_WAIT_LINE: begin
-					epd_sdclk_r <= 1'b0;
-					epd_sdle_r  <= 1'b0;
-					epd_sdce_r  <= 1'b1;
-					if (source_line_toggle != source_line_consumed) begin
-						source_line_consumed <= source_line_toggle;
-						if (source_line_frame == epd_drive_frame) begin
-							epd_source_unit      <= 12'd0;
-							source_mem_read_addr <= 11'd0;
-							epd_out_state        <= EPD_OUT_SHIFT_WAIT;
-						end
-					end
-				end
-
-				EPD_OUT_SHIFT_WAIT: begin
-					// One cycle for the synchronous BSRAM read port.
-					epd_out_state <= EPD_OUT_SHIFT_LOAD;
-				end
-
-				EPD_OUT_SHIFT_LOAD: begin
-					epd_data_r     <= source_read_data;
-					epd_sdce_r     <= 1'b0;
-					epd_sdclk_r    <= 1'b0;
-					if (SOURCE_LINE_UNITS > 1)
-						source_mem_read_addr <= source_next_word_addr;
-					epd_out_state  <= EPD_OUT_SHIFT_HIGH;
-				end
-
-				EPD_OUT_SHIFT_HIGH: begin
-					epd_sdclk_r   <= 1'b1;
-					epd_out_state <= EPD_OUT_SHIFT_FALL;
-				end
-
-				EPD_OUT_SHIFT_FALL: begin
-					epd_sdclk_r <= 1'b0;
-					if (epd_source_unit == (SOURCE_LINE_UNITS - 1)) begin
-						// Preserve the required extra clock, but issue it with STL/
-						// SDCE inactive so it cannot shift a black word into the row.
-						epd_sdce_r    <= 1'b1;
-						epd_data_r    <= 16'd0;
-						epd_out_state <= EPD_OUT_DUMMY_HIGH;
-					end else begin
-						epd_source_unit      <= source_next_unit;
-						epd_data_r            <= source_next_data;
-						source_mem_read_addr <= source_after_next_word_addr;
-						epd_out_state        <= EPD_OUT_SHIFT_HIGH;
-					end
-				end
-
-				EPD_OUT_DUMMY_HIGH: begin
-					epd_sdclk_r   <= 1'b1;
-					epd_out_state <= EPD_OUT_DUMMY_FALL;
-				end
-
-				EPD_OUT_DUMMY_FALL: begin
-					epd_sdclk_r   <= 1'b0;
-					epd_out_timer <= 10'd0;
-					epd_out_state <= EPD_OUT_LE_DELAY;
-				end
-
-				EPD_OUT_LE_DELAY: begin
-					if (epd_out_timer >= (SOURCE_LE_ON_CYCLES - 1)) begin
-						epd_out_timer <= 10'd0;
-						epd_sdle_r    <= 1'b1;
-						epd_out_state <= EPD_OUT_LE_HIGH;
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_LE_HIGH: begin
-					if (epd_out_timer >= (SOURCE_LE_HIGH_CYCLES - 1)) begin
-						epd_out_timer <= 10'd0;
-						epd_sdle_r    <= 1'b0;
-						epd_out_state <= EPD_OUT_LE_OFF;
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_LE_OFF: begin
-					if (epd_out_timer >= (SOURCE_LE_OFF_CYCLES - 1)) begin
-						epd_out_timer <= 10'd0;
-						epd_gdclk_r   <= 1'b1;
-						epd_out_state <= EPD_OUT_GATE_HIGH;
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_GATE_HIGH: begin
-					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
-						epd_out_timer <= 10'd0;
-						epd_gdclk_r   <= 1'b0;
-						epd_out_state <= EPD_OUT_GATE_LOW;
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_GATE_LOW: begin
-					if (epd_out_timer >= (GATE_HALF_CYCLES - 1)) begin
-						epd_out_timer   <= 10'd0;
-						if (epd_output_line == (`EPD_VACT - 1)) begin
-							epd_out_state <= EPD_OUT_WAIT_FRAME;
-						end else begin
-							epd_output_line <= epd_output_line + 12'd1;
-							epd_out_state <= EPD_OUT_WAIT_LINE;
-						end
-					end else begin
-						epd_out_timer <= epd_out_timer + 10'd1;
-					end
-				end
-
-				EPD_OUT_WAIT_FRAME: begin
-					epd_gdclk_r <= 1'b0;
-					epd_sdclk_r <= 1'b0;
-					epd_sdle_r  <= 1'b0;
-					epd_sdce_r  <= 1'b1;
-				end
-
-				default: epd_out_state <= EPD_OUT_IDLE;
-				endcase
-			end
-		end
-	end
-
-	assign epd_gdclk = epd_gdclk_r;
-	assign epd_gdsp  = epd_gdsp_r;
-	assign epd_sdclk = epd_sdclk_r;
-	assign epd_sdle  = epd_sdle_r;
-	assign epd_sdce  = epd_sdce_r;
-	assign epd_data  = epd_data_r;
-
-`else
-	// ============================================================
-	// Stage 5 — shift / pack 4 pixels into 1 byte
-	// ============================================================
-
-//  reg [1:0] s5_pix_cnt;
-//  reg [7:0] s5_shift;
-//  reg       s5_active;
-//  reg [7:0] epd_data_r;
-//  reg       epd_sdclk_r;
-//  reg [1:0] clk_delay_cnt; 
-
-//  always @(posedge clk) begin
-//      if (rst) begin
-//          s5_shift      <= 8'h00;
-//          s5_pix_cnt    <= 2'd0;
-//          s5_active     <= 1'b0;
-//          epd_data_r    <= 8'h00;
-//          epd_sdclk_r   <= 1'b0;
-//          clk_delay_cnt <= 2'd0;
-//      end else begin
-//          s5_active   <= s4_active;
-//          epd_sdclk_r <= 1'b0;  
-//          if (clk_delay_cnt != 2'd0) begin
-//              clk_delay_cnt <= clk_delay_cnt - 2'd1;
-//              if (clk_delay_cnt <= 2'd2)  
-//                  epd_sdclk_r <= 1'b1;
-//          end
-//          if (s5_active) begin
-//              s5_shift <= {s5_shift[5:0], current_pixel};
-//              if (s5_pix_cnt == 2'd3) begin
-//                  epd_data_r    <= {s5_shift[5:0], current_pixel};
-//                  s5_pix_cnt    <= 2'd0;
-//                  clk_delay_cnt <= 2'd3;                         
-//              end else begin
-//                  s5_pix_cnt <= s5_pix_cnt + 2'd1;
-//              end
-//          end else begin
-//              s5_pix_cnt <= 2'd0;
-//          end
-//      end
-//  end
-
-
-
-
-//  reg [1:0] s5_pix_cnt;
-//  reg [7:0] s5_shift;
-//  reg       s5_active;
-//  reg       s5_active_d;
-//  reg [7:0] epd_data_r;
-//  reg       epd_sdclk_r;
-//  reg [1:0] clk_delay_cnt;
-//  reg       s5_extra_pending;
-
-//  wire s5_fall = s5_active_d & ~s5_active;
-
-//  always @(posedge clk) begin
-//      if (rst) begin
-//          s5_shift         <= 8'h00;
-//          s5_pix_cnt       <= 2'd0;
-//          s5_active        <= 1'b0;
-//          s5_active_d      <= 1'b0;
-//          epd_data_r       <= 8'h00;
-//          epd_sdclk_r      <= 1'b0;
-//          clk_delay_cnt    <= 2'd0;
-//          s5_extra_pending <= 1'b0;
-//      end else begin
-//          s5_active_d <= s5_active;
-//          s5_active   <= s4_active;
-//          epd_sdclk_r <= 1'b0;
-//          if (s5_fall) begin
-//              if (clk_delay_cnt != 2'd0)
-//                  s5_extra_pending <= 1'b1;
-//              else
-//                  clk_delay_cnt <= 2'd3;
-//          end
-//          if (clk_delay_cnt != 2'd0) begin
-//              clk_delay_cnt <= clk_delay_cnt - 2'd1;
-//              if (clk_delay_cnt <= 2'd2)
-//                  epd_sdclk_r <= 1'b1;
-//              if (clk_delay_cnt == 2'd1 && s5_extra_pending) begin
-//                  s5_extra_pending <= 1'b0;
-//                  clk_delay_cnt    <= 2'd3;
-//              end
-//          end
-//          if (s5_active) begin
-//              s5_shift <= {s5_shift[5:0], current_pixel};
-//              if (s5_pix_cnt == 2'd3) begin
-//                  epd_data_r    <= {s5_shift[5:0], current_pixel};
-//                  s5_pix_cnt    <= 2'd0;
-//                  clk_delay_cnt <= 2'd3;
-//              end else begin
-//                  s5_pix_cnt <= s5_pix_cnt + 2'd1;
-//              end
-//          end else begin
-//              s5_pix_cnt <= 2'd0;
-//          end
-//      end
-//  end
-
-	// Source output is selected statically at synthesis time. Both branches
-	// keep active and current_pixel at the same pipeline depth and register
-	// SDCLK, so epd_data has the setup interval of the verified implementation.
-	wire [15:0] epd_data_r;
-	wire        source_sdclk;
-	wire        s5_extra_pending;
-
-	generate
-	if (`EPD_OUTPUT_WIDTH == 16) begin : gen_source_tx16
-		reg [1:0]  pix_count;
-		reg [7:0]  shift;
-		reg        active;
-		reg        active_d;
-		reg [7:0]  half_word;
-		reg        half_valid;
-		reg [15:0] data_r;
-		reg [1:0]  clk_delay_count;
-		reg        extra_pending;
-		reg        sdclk_r;
-
-		wire line_fall = active_d && !active;
-		wire [7:0] complete_word = {shift[5:0], current_pixel};
-		reg [7:0] partial_word;
-
-		always @(*) begin
-			case (pix_count)
-				2'd1: partial_word = {shift[1:0], 6'b0};
-				2'd2: partial_word = {shift[3:0], 4'b0};
-				2'd3: partial_word = {shift[5:0], 2'b0};
-				default: partial_word = 8'h00;
-			endcase
-		end
-
-		always @(posedge clk) begin
-			if (rst) begin
-				pix_count       <= 2'd0;
-				shift           <= 8'h00;
-				active          <= 1'b0;
-				active_d        <= 1'b0;
-				half_word       <= 8'h00;
-				half_valid      <= 1'b0;
-				data_r          <= 16'h0000;
-				clk_delay_count <= 2'd0;
-				extra_pending   <= 1'b0;
-				sdclk_r         <= 1'b0;
-			end else begin
-				active_d <= active;
-				active   <= s4_active;
-				sdclk_r <= (clk_delay_count != 2'd0) &&
-				           (clk_delay_count <= 2'd2);
-
-				if (line_fall) begin
-`ifdef EPD_AUTO_HPAD
-					if (pix_count != 2'd0) begin
-						data_r <= half_valid ?
-						          {half_word, partial_word} :
-						          {partial_word, 8'h00};
-						half_valid      <= 1'b0;
-						clk_delay_count <= 2'd3;
-						extra_pending   <= 1'b1;
-					end else if (half_valid) begin
-						data_r          <= {half_word, 8'h00};
-						half_valid      <= 1'b0;
-						clk_delay_count <= 2'd3;
-						extra_pending   <= 1'b1;
-					end else if (clk_delay_count != 2'd0) begin
-						extra_pending <= 1'b1;
-					end else begin
-						clk_delay_count <= 2'd3;
-					end
-`else
-					if (half_valid) begin
-						data_r          <= {half_word, 8'h00};
-						half_valid      <= 1'b0;
-						clk_delay_count <= 2'd3;
-						extra_pending   <= 1'b1;
-					end else if (clk_delay_count != 2'd0) begin
-						extra_pending <= 1'b1;
-					end else begin
-						clk_delay_count <= 2'd3;
-					end
-`endif
-				end
-
-				if (clk_delay_count != 2'd0) begin
-					clk_delay_count <= clk_delay_count - 2'd1;
-					if ((clk_delay_count == 2'd1) && extra_pending) begin
-						extra_pending   <= 1'b0;
-						clk_delay_count <= 2'd3;
-					end
-				end
-
-				if (active) begin
-					shift <= {shift[5:0], current_pixel};
-					if (pix_count == 2'd3) begin
-						pix_count <= 2'd0;
-						if (half_valid) begin
-							data_r          <= {half_word, complete_word};
-							half_valid      <= 1'b0;
-							clk_delay_count <= 2'd3;
-						end else begin
-							half_word  <= complete_word;
-							half_valid <= 1'b1;
-						end
-					end else begin
-						pix_count <= pix_count + 2'd1;
-					end
-				end else begin
-					pix_count <= 2'd0;
-				end
-			end
-		end
-
-		assign epd_data_r = data_r;
-		assign source_sdclk = sdclk_r;
-		assign s5_extra_pending = extra_pending;
-	end else begin : gen_source_tx8
-		reg [1:0]  pix_count;
-		reg [7:0]  shift;
-		reg        active;
-		reg        active_d;
-		reg [15:0] data_r;
-		reg [1:0]  clk_delay_count;
-		reg        extra_pending;
-		reg        sdclk_r;
-
-		wire line_fall = active_d && !active;
-		wire [7:0] complete_word = {shift[5:0], current_pixel};
-		reg [7:0] partial_word;
-
-		always @(*) begin
-			case (pix_count)
-				2'd1: partial_word = {shift[1:0], 6'b0};
-				2'd2: partial_word = {shift[3:0], 4'b0};
-				2'd3: partial_word = {shift[5:0], 2'b0};
-				default: partial_word = 8'h00;
-			endcase
-		end
-
-		always @(posedge clk) begin
-			if (rst) begin
-				pix_count       <= 2'd0;
-				shift           <= 8'h00;
-				active          <= 1'b0;
-				active_d        <= 1'b0;
-				data_r          <= 16'h0000;
-				clk_delay_count <= 2'd0;
-				extra_pending   <= 1'b0;
-				sdclk_r         <= 1'b0;
-			end else begin
-				active_d <= active;
-				active   <= s4_active;
-				sdclk_r <= (clk_delay_count != 2'd0) &&
-				           (clk_delay_count <= 2'd2);
-
-				if (line_fall) begin
-`ifdef EPD_AUTO_HPAD
-					if (pix_count != 2'd0) begin
-						data_r          <= {8'h00, partial_word};
-						clk_delay_count <= 2'd3;
-						extra_pending   <= 1'b1;
-					end else if (clk_delay_count != 2'd0) begin
-						extra_pending <= 1'b1;
-					end else begin
-						clk_delay_count <= 2'd3;
-					end
-`else
-					if (clk_delay_count != 2'd0) begin
-						extra_pending <= 1'b1;
-					end else begin
-						clk_delay_count <= 2'd3;
-					end
-`endif
-				end
-
-				if (clk_delay_count != 2'd0) begin
-					clk_delay_count <= clk_delay_count - 2'd1;
-					if ((clk_delay_count == 2'd1) && extra_pending) begin
-						extra_pending   <= 1'b0;
-						clk_delay_count <= 2'd3;
-					end
-				end
-
-				if (active) begin
-					shift <= {shift[5:0], current_pixel};
-					if (pix_count == 2'd3) begin
-						pix_count       <= 2'd0;
-						data_r          <= {8'h00, complete_word};
-						clk_delay_count <= 2'd3;
-					end else begin
-						pix_count <= pix_count + 2'd1;
-					end
-				end else begin
-					pix_count <= 2'd0;
-				end
-			end
-		end
-
-		assign epd_data_r = data_r;
-		assign source_sdclk = sdclk_r;
-		assign s5_extra_pending = extra_pending;
-	end
-	endgenerate
-
-	assign epd_sdclk = source_sdclk;
-
-	// ============================================================
-	// EPD Drive 
-	// ============================================================
-
-	wire epd_vfp;
+	// The existing Pomo path delays bi_de/bi_vsync by six clocks to align
+	// framebuffer writeback with current_pixel. Apply that same established
+	// structural latency to the scan regions; it is not a panel timing value.
+	localparam [3:0] OUTPUT_PIPELINE_DELAY = 4'd6;
+	wire [7:0] epd_scan_regions;
 	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_vfp (
-		.clk(clk), 
+		.DEPTH(OUTPUT_PIPELINE_DELAY),
+		.WIDTH(8)
+	) u_delay_epd_scan_regions (
+		.clk(clk),
 		.rst(rst),
-		.din(scan_in_vfp),
-		.dout(epd_vfp)
+		.din({scan_in_vsync, scan_in_vbp, scan_in_vact,
+		      scan_in_vact_le,
+		      scan_in_hfp, scan_in_hsync, scan_in_hbp, scan_in_hact}),
+		.dout(epd_scan_regions)
 	);
 
 	wire epd_vsync;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_vsync (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_vsync),
-		.dout(epd_vsync)
-	);
-
 	wire epd_vbp;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_vbp (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_vbp),
-		.dout(epd_vbp)
-	);
-
 	wire epd_vact;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_vact (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_vact),
-		.dout(epd_vact)
-	);  
-
 	wire epd_vact_le;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_vact_le (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_vact_le),
-		.dout(epd_vact_le)
-	);
-
+	wire epd_hfp;
 	wire epd_hsync;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_hsync (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_hsync),
-		.dout(epd_hsync)
-	);
-
 	wire epd_hbp;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_hbp (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_hbp),
-		.dout(epd_hbp)
-	);
+	wire epd_hact;
+	assign {epd_vsync, epd_vbp, epd_vact, epd_vact_le,
+	        epd_hfp, epd_hsync, epd_hbp, epd_hact} = epd_scan_regions;
+	wire epd_act = epd_vact && epd_hact;
 
-	wire epd_act;
-	delay #(
-		.DEPTH(10), 
-		.WIDTH(1)
-	) u_delay_epd_act (
-		.clk(clk), 
-		.rst(rst),
-		.din(scan_in_act),
-		.dout(epd_act)
-	);
+	// Caster consumes four 2-bit pixels per core clock. Pomo consumes one,
+	// therefore a half Source word is collected over a bus-width-derived number
+	// of clocks. The rising/falling edge roles and blanking enables are unchanged.
+	localparam integer SOURCE_HALF_BITS = `EPD_OUTPUT_WIDTH / 2;
+	localparam integer SOURCE_HALF_PIXELS = `EPD_OUTPUT_WIDTH / 4;
+	wire source_clk_en = epd_hfp || epd_hsync || epd_hact;
+	reg [2:0] source_half_pixel_count;
+	reg [SOURCE_HALF_BITS-1:0] source_half_shift;
+	reg [SOURCE_HALF_BITS-1:0] source_last_half;
+	reg [15:0] source_data;
+	reg source_clk;
+	reg source_sdce;
+	wire [SOURCE_HALF_BITS-1:0] source_half_next =
+		{source_half_shift[SOURCE_HALF_BITS-3:0], current_pixel};
 
-	wire epd_gdclk_pre = ((epd_hsync || epd_hbp || epd_act) && (epd_vact || epd_vsync)) ? 1'b1 : 1'b0;
-	wire epd_gdclk_dl;
-	delay #(
-		.DEPTH(1), 
-		.WIDTH(1)
-	) u_delay_epd_gdclk (
-		.clk(clk), 
-		.rst(rst),
-		.din(epd_gdclk_pre),
-		.dout(epd_gdclk_dl)
-	);
-	assign epd_gdclk = epd_gdclk_dl;
+	always @(posedge clk) begin
+		if (rst) begin
+			source_half_pixel_count <= 3'd0;
+			source_half_shift <= {SOURCE_HALF_BITS{1'b0}};
+			source_last_half <= {SOURCE_HALF_BITS{1'b0}};
+			source_data <= 16'd0;
+			source_clk <= 1'b0;
+			source_sdce <= 1'b1;
+		end else if (!source_clk_en) begin
+			// Caster forces SDCLK low during HBP to establish line phase.
+			source_half_pixel_count <= 3'd0;
+			source_half_shift <= {SOURCE_HALF_BITS{1'b0}};
+			source_last_half <= {SOURCE_HALF_BITS{1'b0}};
+			source_clk <= 1'b0;
+			source_sdce <= 1'b1;
+		end else begin
+			source_half_shift <= source_half_next;
+			if (source_half_pixel_count == SOURCE_HALF_PIXELS - 1) begin
+				source_half_pixel_count <= 3'd0;
+				source_clk <= ~source_clk;
+				if (source_clk) begin
+					// Falling edge: publish a complete word. The following
+					// rising edge is the Source-driver sampling edge.
+					source_data <=
+						{{(16-`EPD_OUTPUT_WIDTH){1'b0}},
+						 source_last_half, source_half_next};
+					source_sdce <= !epd_act;
+				end else begin
+					source_last_half <= source_half_next;
+				end
+			end else begin
+				source_half_pixel_count <= source_half_pixel_count + 3'd1;
+			end
+		end
+	end
+
+	assign epd_sdclk = source_clk;
+	assign epd_sdce = source_sdce;
+	assign epd_data = source_data;
+
+	// Caster's CKV is one cycle per scan line and is derived from contiguous
+	// horizontal regions.  Pomo's DE comes from an asynchronous MIPI FIFO, so it
+	// may contain short gaps and must not be used directly as the CKV level.
+	// Hold CKV high from the first active pixel through the end of the line, and
+	// low through the configured HSYNC + HBP interval.  This preserves the
+	// one-cycle-per-line relationship without a panel-specific pulse constant.
+	reg epd_gate_line_high;
+	always @(posedge clk) begin
+		if (rst)
+			epd_gate_line_high <= 1'b0;
+		else if (epd_vsync)
+			epd_gate_line_high <= 1'b1;
+		else if (epd_hsync)
+			epd_gate_line_high <= 1'b0;
+		else if (epd_vact && epd_hact)
+			epd_gate_line_high <= 1'b1;
+	end
+	wire epd_gdclk_pre = epd_gate_line_high;
+	reg epd_gdclk_delay;
+	always @(posedge clk) begin
+		if (rst)
+			epd_gdclk_delay <= 1'b0;
+		else
+			epd_gdclk_delay <= epd_gdclk_pre;
+	end
+
+	assign epd_gdclk = epd_gdclk_delay;
 	assign epd_gdsp = epd_vsync ? 1'b0 : 1'b1;
-	assign epd_sdle = (epd_hsync && epd_vact_le) ? 1'b1 : 1'b0;
-	// A padded partial word is real source data. Keep SDCE selected for it;
-	// s5_extra_pending clears before the following dummy SDCLK.
-	assign epd_sdce = (epd_act || s5_extra_pending) ? 1'b0 : 1'b1;
-	assign epd_data = epd_data_r;
+	assign epd_sdle = epd_hsync && epd_vact_le;
 
-`endif
 endmodule

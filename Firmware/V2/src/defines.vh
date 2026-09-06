@@ -25,22 +25,9 @@
 `define PMIC_SY7636A
 
 // === EPD source bus width ===
-// The processing pipeline always produces one 8-bit word (four 2-bit pixels)
-// at a time. In 16-bit mode, the output rate adapter combines two consecutive
-// words and emits one SDCLK for eight pixels, following the Caster approach.
+// The processing pipeline produces one 2-bit pixel per clock. The Source
+// adapter derives its half-word cadence from this physical bus width.
 `define EPD_OUTPUT_WIDTH    16
-
-// Generate the panel timing from the completed pixel stream instead of
-// delaying MIPI HSYNC/DE by a fixed number of pixel clocks.  This uses a
-// one-line BSRAM-backed buffer and Caster-style Source/Gate sequencing.
-`define EPD_CASTER_TIMING
-
-// Panel-side Gate preamble. These are deliberately independent of the MIPI
-// vertical porches: a video VBP is not automatically a Gate-driver clock.
-// The defaults preserve Pomo's previously verified sequence (VSYNC start
-// clocks followed directly by the active Gate clocks).
-`define EPD_GATE_START_PULSES  `DEFAULT_VSYNC
-`define EPD_GATE_SETTLE_PULSES 0
 
 // === Internal video test source ===
 // Uncomment EPD_INTERNAL_TEST to build a self-contained test bitstream which
@@ -92,18 +79,10 @@
 `ifdef EPD_PIXEL_REORDER
 `define EPD_HACT            (`DEFAULT_HACT / 2)
 `define EPD_VACT            (`DEFAULT_VACT * 2)
-// Pad a final partial 8-bit source word instead of dropping it. The output
-// rate adapter performs the additional half-word padding required in 16-bit
-// mode. The existing extra dummy SDCLK after every physical line is preserved.
-`define EPD_AUTO_HPAD
 `else
 `define EPD_HACT            `DEFAULT_HACT
 `define EPD_VACT            `DEFAULT_VACT
 `endif
-
-`define DEFAULT_FPS         85
-`define AUTO_CLEAR_PERIOD   5
-`define AUTO_CLEAR_FRAMES   (`DEFAULT_FPS * `AUTO_CLEAR_PERIOD)
 
 // === 系统运行模式（pomo.v → pixel_processing.v）===
 `define SYS_NORMAL          2'b00
@@ -115,9 +94,9 @@
 `define LUT_FRAMES          6'd48
 
 // === 默认启动模式（选一个取消注释）===
-`define INIT_MODE_FAST_MONO
+//`define INIT_MODE_FAST_MONO
 //`define INIT_MODE_FAST_MONO_BN
-//`define INIT_MODE_FAST_GREY
+`define INIT_MODE_FAST_GREY
 //`define INIT_MODE_AUTO_LUT
 //`define INIT_MODE_AUTO_LUT_BN
 //`define INIT_MODE_MANUAL_LUT

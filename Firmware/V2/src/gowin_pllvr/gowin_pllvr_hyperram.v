@@ -4,7 +4,7 @@
 //Tool Version: V1.9.12 (64-bit)
 //Part Number: GW1NSR-LV4CQN48PC6/I5
 //Device: GW1NSR-4C
-//Created Time: Fri May 15 21:00:44 2026
+//Created Time: Sun Sep  6 15:24:14 2026
 
 module Gowin_PLLVR_HYPERRAM (clkout, lock, reset, clkin);
 
@@ -43,9 +43,9 @@ PLLVR pllvr_inst (
 
 defparam pllvr_inst.FCLKIN = "27";
 defparam pllvr_inst.DYN_IDIV_SEL = "false";
-defparam pllvr_inst.IDIV_SEL = 0;
+defparam pllvr_inst.IDIV_SEL = 8;
 defparam pllvr_inst.DYN_FBDIV_SEL = "false";
-defparam pllvr_inst.FBDIV_SEL = 5;
+defparam pllvr_inst.FBDIV_SEL = 54;
 defparam pllvr_inst.DYN_ODIV_SEL = "false";
 defparam pllvr_inst.ODIV_SEL = 4;
 defparam pllvr_inst.PSDA_SEL = "0000";
