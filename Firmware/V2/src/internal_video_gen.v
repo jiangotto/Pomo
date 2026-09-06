@@ -18,6 +18,7 @@
 //   6: black reference background + central rectangle toggles black/white
 //   7: comprehensive EPD test: 16 gray levels, moving bar and dynamic checker
 //   8: static full-screen 16-level grayscale bars (black to white)
+//   9: static geometry/offset target with borders, rulers and corner markers
 //
 // Recommended diagnostic use:
 //   1) Clock this module from mipi_pclk to bypass MIPI data lanes/parser
@@ -125,6 +126,80 @@ module internal_video_gen #(
     // Keep the intermediate explicitly wide so Gowin does not report the
     // intentional 4-bit grayscale result as an implicit truncation.
     wire [31:0] grayscale_level = (x_pos * 16) / H_ACTIVE;
+
+    // Geometry target helpers.  The outer border exposes clipping/wraparound;
+    // the 8-pixel rulers measure displacement; the four different corner
+    // markers make the direction of any wrap unambiguous.
+    localparam integer TARGET_BORDER = 4;
+    localparam integer TARGET_MARGIN = 12;
+    localparam integer TARGET_MARKER = 48;
+    localparam integer TARGET_CENTER_X = H_ACTIVE / 2;
+    localparam integer TARGET_CENTER_Y = V_ACTIVE / 2;
+
+    wire target_outer_border =
+        (x_pos < TARGET_BORDER) ||
+        (x_pos >= H_ACTIVE - TARGET_BORDER) ||
+        (y_pos < TARGET_BORDER) ||
+        (y_pos >= V_ACTIVE - TARGET_BORDER);
+    wire target_center_cross =
+        ((x_pos >= TARGET_CENTER_X - 1) &&
+         (x_pos <= TARGET_CENTER_X + 1)) ||
+        ((y_pos >= TARGET_CENTER_Y - 1) &&
+         (y_pos <= TARGET_CENTER_Y + 1));
+    wire target_minor_grid =
+        (x_pos[3:0] == 4'd0) || (y_pos[3:0] == 4'd0);
+    wire target_major_grid =
+        (x_pos[5:0] < 6'd2) || (y_pos[5:0] < 6'd2);
+
+    // A short tick is 16 pixels, a long tick is 48 pixels.  Ticks repeat every
+    // 8 pixels and every fourth tick is long, so displacement can be counted
+    // directly even when the one-pixel grid is hard to see on the panel.
+    wire target_v_tick_row = (y_pos[2:0] == 3'd0);
+    wire target_v_tick_long = (y_pos[4:0] == 5'd0);
+    wire target_v_ruler = target_v_tick_row &&
+        ((x_pos < (target_v_tick_long ? 48 : 16)) ||
+         (x_pos >= H_ACTIVE - (target_v_tick_long ? 48 : 16)));
+    wire target_h_tick_col = (x_pos[2:0] == 3'd0);
+    wire target_h_tick_long = (x_pos[4:0] == 5'd0);
+    wire target_h_ruler = target_h_tick_col &&
+        ((y_pos < (target_h_tick_long ? 48 : 16)) ||
+         (y_pos >= V_ACTIVE - (target_h_tick_long ? 48 : 16)));
+
+    wire target_tl =
+        (x_pos >= TARGET_MARGIN) &&
+        (x_pos < TARGET_MARGIN + TARGET_MARKER) &&
+        (y_pos >= TARGET_MARGIN) &&
+        (y_pos < TARGET_MARGIN + TARGET_MARKER);
+    wire target_tr =
+        (x_pos >= H_ACTIVE - TARGET_MARGIN - TARGET_MARKER) &&
+        (x_pos < H_ACTIVE - TARGET_MARGIN) &&
+        (y_pos >= TARGET_MARGIN) &&
+        (y_pos < TARGET_MARGIN + TARGET_MARKER);
+    wire target_bl =
+        (x_pos >= TARGET_MARGIN) &&
+        (x_pos < TARGET_MARGIN + TARGET_MARKER) &&
+        (y_pos >= V_ACTIVE - TARGET_MARGIN - TARGET_MARKER) &&
+        (y_pos < V_ACTIVE - TARGET_MARGIN);
+    wire target_br =
+        (x_pos >= H_ACTIVE - TARGET_MARGIN - TARGET_MARKER) &&
+        (x_pos < H_ACTIVE - TARGET_MARGIN) &&
+        (y_pos >= V_ACTIVE - TARGET_MARGIN - TARGET_MARKER) &&
+        (y_pos < V_ACTIVE - TARGET_MARGIN);
+    wire [11:0] target_tr_x = x_pos -
+        (H_ACTIVE - TARGET_MARGIN - TARGET_MARKER);
+    wire [10:0] target_bl_y = y_pos -
+        (V_ACTIVE - TARGET_MARGIN - TARGET_MARKER);
+    wire [12:0] target_bl_diag_sum =
+        {1'b0, x_pos - TARGET_MARGIN} + {2'b0, target_bl_y};
+    wire target_tr_outline = target_tr &&
+        ((target_tr_x < 4) ||
+         (target_tr_x >= TARGET_MARKER - 4) ||
+         ((y_pos - TARGET_MARGIN) < 4) ||
+         ((y_pos - TARGET_MARGIN) >= TARGET_MARKER - 4));
+    wire target_bl_diagonal = target_bl &&
+        (((x_pos - TARGET_MARGIN) == target_bl_y) ||
+         (target_bl_diag_sum == TARGET_MARKER - 1));
+    wire target_br_checker = target_br && (x_pos[3] ^ y_pos[3]);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -258,6 +333,23 @@ module internal_video_gen #(
                     // is static and therefore does not depend on phase or
                     // TOGGLE_FRAMES.
                     pixel = grayscale_level[3:0];
+                end
+
+                9: begin
+                    // Corner IDs: TL=solid, TR=outline, BL=X, BR=checker.
+                    // Black rulers are spaced 8 pixels apart (long every 32),
+                    // while the gray grid is spaced 16/64 pixels apart.
+                    if (target_outer_border || target_center_cross ||
+                        target_v_ruler || target_h_ruler || target_tl ||
+                        target_tr_outline || target_bl_diagonal ||
+                        target_br_checker)
+                        pixel = 4'h0;
+                    else if (target_major_grid)
+                        pixel = 4'h6;
+                    else if (target_minor_grid)
+                        pixel = 4'hB;
+                    else
+                        pixel = 4'hF;
                 end
 
                 default: begin

@@ -11,6 +11,7 @@
         <File path="src/delay.v" type="file.verilog" enable="1"/>
         <File path="src/epd_pixel_reorder.v" type="file.verilog" enable="1"/>
         <File path="src/fb_hpram.v" type="file.verilog" enable="1"/>
+        <File path="src/fifo_hs/fifo_hs_epdc.v" type="file.verilog" enable="1"/>
         <File path="src/fifo_hs/fifo_hs_mipi.v" type="file.verilog" enable="1"/>
         <File path="src/fifo_hs/fifo_hs_vin.v" type="file.verilog" enable="1"/>
         <File path="src/gowin_pllvr/gowin_pllvr_hyperram.v" type="file.verilog" enable="1"/>
@@ -38,6 +39,7 @@
         <File path="src/wvfmlut.v" type="file.verilog" enable="1"/>
         <File path="src/Pomo.cst" type="file.cst" enable="1"/>
         <File path="src/Pomo.sdc" type="file.sdc" enable="1"/>
+        <File path="src/mipi_fps_debug.rao" type="file.gao" enable="0"/>
         <File path="src/mipi_pixel_debug.rao" type="file.gao" enable="0"/>
         <File path="src/mipi_rx_debug.rao" type="file.gao" enable="0"/>
         <File path="noise/noise.mi" type="file.other" enable="1"/>

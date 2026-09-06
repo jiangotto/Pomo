@@ -190,6 +190,8 @@ module pomo (
 	wire scan_in_vbp;
 	wire scan_in_vact;
 	wire scan_in_vact_le;
+	wire scan_in_gate_start;
+	wire scan_in_gate_blank;
 	wire scan_in_hsync;
 	wire scan_in_hact;
 	wire scan_in_act;
@@ -203,6 +205,15 @@ module pomo (
 	assign scan_in_vact_le = frame_valid &&
 		(scan_v_cnt >= VSYNC + VBP + 1) &&
 		(scan_v_cnt < VSYNC + VBP + VACT + 1);
+	// Start STV early enough that the first active line supplies the final
+	// internal shift before G1. Keep clocking through the trailing VFP so the
+	// last Source row, latched there, receives the final Gate selection.
+	localparam [10:0] GATE_START_LINE = VSYNC + VBP -
+		(`EPD_GATE_FIRST_ROW_DELAY - 1);
+	assign scan_in_gate_start = frame_valid &&
+		(scan_v_cnt == GATE_START_LINE);
+	assign scan_in_gate_blank = frame_valid &&
+		(scan_v_cnt >= GATE_START_LINE) && !scan_in_vact;
 	assign scan_in_hsync = vin_hsync;
 	assign scan_in_hact  = vin_de;
 	assign scan_in_act   = scan_in_vact && scan_in_hact;
@@ -531,14 +542,15 @@ module pomo (
 	// framebuffer writeback with current_pixel. Apply that same established
 	// structural latency to the scan regions; it is not a panel timing value.
 	localparam [3:0] OUTPUT_PIPELINE_DELAY = 4'd6;
-	wire [7:0] epd_scan_regions;
+	wire [9:0] epd_scan_regions;
 	delay #(
 		.DEPTH(OUTPUT_PIPELINE_DELAY),
-		.WIDTH(8)
+		.WIDTH(10)
 	) u_delay_epd_scan_regions (
 		.clk(clk),
 		.rst(rst),
-		.din({scan_in_vsync, scan_in_vbp, scan_in_vact,
+		.din({scan_in_gate_start, scan_in_gate_blank,
+		      scan_in_vsync, scan_in_vbp, scan_in_vact,
 		      scan_in_vact_le,
 		      scan_in_hfp, scan_in_hsync, scan_in_hbp, scan_in_hact}),
 		.dout(epd_scan_regions)
@@ -548,11 +560,14 @@ module pomo (
 	wire epd_vbp;
 	wire epd_vact;
 	wire epd_vact_le;
+	wire epd_gate_start;
+	wire epd_gate_blank;
 	wire epd_hfp;
 	wire epd_hsync;
 	wire epd_hbp;
 	wire epd_hact;
-	assign {epd_vsync, epd_vbp, epd_vact, epd_vact_le,
+	assign {epd_gate_start, epd_gate_blank,
+	        epd_vsync, epd_vbp, epd_vact, epd_vact_le,
 	        epd_hfp, epd_hsync, epd_hbp, epd_hact} = epd_scan_regions;
 	wire epd_act = epd_vact && epd_hact;
 
@@ -611,24 +626,25 @@ module pomo (
 	assign epd_sdce = source_sdce;
 	assign epd_data = source_data;
 
-	// Caster's CKV is one cycle per scan line and is derived from contiguous
-	// horizontal regions.  Pomo's DE comes from an asynchronous MIPI FIFO, so it
-	// may contain short gaps and must not be used directly as the CKV level.
-	// Hold CKV high from the first active pixel through the end of the line, and
-	// low through the configured HSYNC + HBP interval.  This preserves the
-	// one-cycle-per-line relationship without a panel-specific pulse constant.
-	reg epd_gate_line_high;
+	// Match Caster's Gate phase: CKV is high through HSYNC/HBP/HACT and falls
+	// when HACT enters HFP.  SDLE is asserted at the following HSYNC, so Source
+	// data is latched after the Gate falling edge instead of on that same edge.
+	// Vertical blanking has no DE from which to recover HACT/HFP. Reproduce the
+	// same leading high phase there from the real HSYNC plus the configured video
+	// HBP, then leave CKV low for the rest of the row. This covers both the STV
+	// lead-in and the trailing VFP clock which selects the final Gate row.
+	reg [7:0] epd_gate_hbp_count;
 	always @(posedge clk) begin
-		if (rst)
-			epd_gate_line_high <= 1'b0;
-		else if (epd_vsync)
-			epd_gate_line_high <= 1'b1;
-		else if (epd_hsync)
-			epd_gate_line_high <= 1'b0;
-		else if (epd_vact && epd_hact)
-			epd_gate_line_high <= 1'b1;
+		if (rst || epd_hsync || !epd_gate_blank)
+			epd_gate_hbp_count <= 8'd0;
+		else if (epd_gate_hbp_count < `DEFAULT_HBP)
+			epd_gate_hbp_count <= epd_gate_hbp_count + 8'd1;
 	end
-	wire epd_gdclk_pre = epd_gate_line_high;
+	wire epd_gate_blank_high = epd_gate_blank &&
+		(epd_hsync || (epd_gate_hbp_count < `DEFAULT_HBP));
+	wire epd_gate_active_high = epd_vact &&
+		(epd_hsync || epd_hbp || epd_hact);
+	wire epd_gdclk_pre = epd_gate_blank_high || epd_gate_active_high;
 	reg epd_gdclk_delay;
 	always @(posedge clk) begin
 		if (rst)
@@ -638,7 +654,7 @@ module pomo (
 	end
 
 	assign epd_gdclk = epd_gdclk_delay;
-	assign epd_gdsp = epd_vsync ? 1'b0 : 1'b1;
+	assign epd_gdsp = epd_gate_start ? 1'b0 : 1'b1;
 	assign epd_sdle = epd_hsync && epd_vact_le;
 
 endmodule

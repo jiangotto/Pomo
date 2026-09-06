@@ -29,13 +29,17 @@
 // adapter derives its half-word cadence from this physical bus width.
 `define EPD_OUTPUT_WIDTH    16
 
+// Gate-driver shift distance from the STV clock through the clock immediately
+// preceding G1.  Unlike the MIPI vertical porches, this is a panel property.
+`define EPD_GATE_FIRST_ROW_DELAY  4
+
 // === Internal video test source ===
 // Uncomment EPD_INTERNAL_TEST to build a self-contained test bitstream which
 // does not require a MIPI clock or data source. The generated raster still
 // passes through pixel reorder (when enabled), dithering, waveform processing,
 // framebuffer and the normal EPD output path.
 //`define EPD_INTERNAL_TEST
-`define EPD_TEST_PATTERN_MODE       8
+`define EPD_TEST_PATTERN_MODE       9
 `define EPD_TEST_PATTERN_FPS        85
 `define EPD_TEST_CHANGE_FRAMES      85
 `define EPD_TEST_SYS_CLK_HZ         27000000
