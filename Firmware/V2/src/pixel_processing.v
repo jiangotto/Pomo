@@ -25,13 +25,12 @@
 
 module pixel_processing (
 	input  wire [3:0]  proc_pixel,            // New pixel from MIPI (Y4)
+	input  wire [3:0]  proc_vin,              // Mode-selected/dithered input
 	input  wire [15:0] proc_bi,               // Pixel state from framebuffer
 	input  wire [1:0]  proc_lut_rd,           // Waveform LUT readout
 	input  wire [1:0]  sys_mode,              // SYS_CLEAR / SYS_NORMAL(GC16) / SYS_AUTO_LUT
 	input  wire [5:0]  al_framecnt,           // Auto LUT global frame counter
 	input  wire [9:0]  clear_frame_cnt,
-	input  wire        proc_p_n1,             // Blue noise dither 1-bit
-	input  wire [3:0]  proc_p_n4,             // Blue noise dither 4-bit
 	output reg  [15:0] proc_bo,               // Pixel state writeback to framebuffer
 	output reg  [1:0]  proc_output            // EPD drive output
 );
@@ -220,18 +219,6 @@ module pixel_processing (
 	/* verilator lint_on UNUSEDSIGNAL */
 	// Let it optimize, only 4b in and 4b out used
 	assign proc_pixel_linear = {proc_pixel, 4'b0};
-
-	// The linearized 4-bit input is exactly proc_pixel in bits [7:4].  Decode
-	// only the two modes which actually substitute dither data here.  Routing
-	// proc_vin through pixel_basemode -> pixel_dither -> a second mux put the
-	// mode bits on the longest Pixel-clock path before the state-machine mux.
-	// This direct decode is logically identical but removes that cascaded mux.
-	wire use_dither_1b = (pixel_mode == MODE_FAST_MONO_BLUE_NOISE);
-	wire use_dither_4b =
-		(pixel_mode_hi == MODE_MANUAL_LUT_BLUE_NOISE) ||
-		(pixel_mode == MODE_AUTO_LUT_BLUE_NOISE);
-	wire [3:0] proc_vin = use_dither_1b ? {4{proc_p_n1}} :
-	                       use_dither_4b ? proc_p_n4 : proc_pixel;
 
 	wire [3:0] proc_vinnd = proc_pixel;
 
