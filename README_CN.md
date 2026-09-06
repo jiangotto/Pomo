@@ -107,14 +107,15 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 | `EPD_OUTPUT_WIDTH` | 选择 EPD Source 输出位宽；V2 硬件使用16位 |
 | `EPD_INTERNAL_TEST` | 使用内部视频发生器替代外部 MIPI 输入 |
 | `EPD_TEST_PATTERN_MODE` | 选择内部静态或动态测试图案 |
+| `EPD_TEST_PATTERN_FPS` | 设置内部测试视频源的帧率 |
 | `EPD_PIXEL_REORDER` | 将逻辑 `2W × H` 视频转换成物理 `W × 2H` 面板排列 |
 | `DEFAULT_*` | 设置期望的 MIPI 有效区、同步和前后肩时序 |
-| `DEFAULT_FPS` | 设置 EPD 控制逻辑采用的输入帧率 |
+| `EPD_STV_TO_G1_CKV` | 设置从采样 STV 到 G1 选通前一次移位之间的面板 CKV 移位距离 |
 | `VCOM_VOL` | 设置面板 VCOM，单位为毫伏；必须根据面板规格书确认 |
 | `CLEAR_FRAMES` | 设置启动清屏序列最后一帧的零基序号 |
 | `LUT_FRAMES` | 设置波形 LUT 长度 |
 
-当前示例配置为1216 × 684、85 Hz、16位 Source 输出、SY7636A、FAST MONO 启动模式，并关闭像素重排。这只是当前开发面板使用的示例，不是所有墨水屏都能直接使用的通用配置。
+当前示例配置采用1216 × 684 MIPI 输入、16位 Source 输出、SY7636A、FAST GREY 启动模式，并关闭像素重排；内部测试视频源帧率为85 Hz。这只是当前开发面板使用的示例，不是所有墨水屏都能直接使用的通用配置。
 
 ### 像素重排
 

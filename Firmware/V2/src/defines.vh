@@ -29,10 +29,6 @@
 // adapter derives its half-word cadence from this physical bus width.
 `define EPD_OUTPUT_WIDTH    16
 
-// Gate-driver shift distance from the STV clock through the clock immediately
-// preceding G1.  Unlike the MIPI vertical porches, this is a panel property.
-`define EPD_GATE_FIRST_ROW_DELAY  4
-
 // === Internal video test source ===
 // Uncomment EPD_INTERNAL_TEST to build a self-contained test bitstream which
 // does not require a MIPI clock or data source. The generated raster still
@@ -44,25 +40,11 @@
 `define EPD_TEST_CHANGE_FRAMES      85
 `define EPD_TEST_SYS_CLK_HZ         27000000
 
-//`define DEFAULT_VFP         8'd1
-//`define DEFAULT_VSYNC       8'd8
-//`define DEFAULT_VBP         8'd6
-//`define DEFAULT_VACT        10'd480
-//`define DEFAULT_HFP         8'd8
-//`define DEFAULT_HSYNC       8'd32
-//`define DEFAULT_HBP         8'd40
-//`define DEFAULT_HACT        12'd800
+// Number of CKV shifts from sampling STV through the shift immediately before
+// G1 is selected. Unlike the MIPI vertical porches, this is a panel property.
+`define EPD_STV_TO_G1_CKV  4
 
-//`define DEFAULT_VFP         8'd1
-//`define DEFAULT_VSYNC       8'd8
-//`define DEFAULT_VBP         8'd6
-//`define DEFAULT_VACT        10'd200
-//`define DEFAULT_HFP         8'd8
-//`define DEFAULT_HSYNC       8'd32
-//`define DEFAULT_HBP         8'd40
-//`define DEFAULT_HACT        12'd750
-
-`define DEFAULT_VFP         8'd1
+`define DEFAULT_VFP         8'd3
 `define DEFAULT_VSYNC       8'd8
 `define DEFAULT_VBP         8'd6
 `define DEFAULT_VACT        10'd684

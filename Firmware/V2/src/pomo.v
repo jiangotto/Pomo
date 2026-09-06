@@ -209,7 +209,7 @@ module pomo (
 	// internal shift before G1. Keep clocking through the trailing VFP so the
 	// last Source row, latched there, receives the final Gate selection.
 	localparam [10:0] GATE_START_LINE = VSYNC + VBP -
-		(`EPD_GATE_FIRST_ROW_DELAY - 1);
+		(`EPD_STV_TO_G1_CKV - 1);
 	assign scan_in_gate_start = frame_valid &&
 		(scan_v_cnt == GATE_START_LINE);
 	assign scan_in_gate_blank = frame_valid &&

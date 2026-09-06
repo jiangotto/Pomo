@@ -107,14 +107,15 @@ The main build-time switches are defined in [`Firmware/V2/src/defines.vh`](Firmw
 | `EPD_OUTPUT_WIDTH` | Select the EPD source output width; V2 hardware uses 16 |
 | `EPD_INTERNAL_TEST` | Replace the external MIPI stream with the internal video generator |
 | `EPD_TEST_PATTERN_MODE` | Select one of the static or animated internal test patterns |
+| `EPD_TEST_PATTERN_FPS` | Set the frame rate of the internal test source |
 | `EPD_PIXEL_REORDER` | Convert a logical `2W × H` input into a physical `W × 2H` panel raster |
 | `DEFAULT_*` | Set the expected MIPI active area, sync and porch timing |
-| `DEFAULT_FPS` | Set the expected input frame rate used by the EPD control logic |
+| `EPD_STV_TO_G1_CKV` | Set the panel-specific CKV shift distance from STV sampling through the shift immediately before G1 |
 | `VCOM_VOL` | Set panel VCOM in millivolts; always verify against the panel datasheet |
 | `CLEAR_FRAMES` | Set the final zero-based index of the startup clear sequence |
 | `LUT_FRAMES` | Set the waveform LUT length |
 
-The current example configuration is 1216 × 684 at 85 Hz, 16-bit source output, SY7636A, FAST MONO startup mode, and pixel reorder disabled. It is an example for the panel currently under development, not a universal setting.
+The current example configuration uses a 1216 × 684 MIPI input, 16-bit source output, SY7636A, FAST GREY startup mode, and pixel reorder disabled. The internal test source runs at 85 Hz. This is an example for the panel currently under development, not a universal setting.
 
 ### Pixel reorder
 
