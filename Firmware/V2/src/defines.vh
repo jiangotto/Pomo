@@ -82,8 +82,8 @@
 // === 默认启动模式（选一个取消注释）===
 //`define INIT_MODE_FAST_MONO
 //`define INIT_MODE_FAST_MONO_BN
-`define INIT_MODE_FAST_GREY
-//`define INIT_MODE_AUTO_LUT
+//`define INIT_MODE_FAST_GREY
+`define INIT_MODE_AUTO_LUT
 //`define INIT_MODE_AUTO_LUT_BN
 //`define INIT_MODE_MANUAL_LUT
 //`define INIT_MODE_MANUAL_LUT_BN
@@ -91,4 +91,4 @@
 // === DYFRC ===
 `define DEFAULT_MINDRV      2'd2    // DYFRC 默认值（caster CSR_MINDVR）
 
-`define VCOM_VOL            13'd1330 // 1310; 2250;
+`define VCOM_VOL            13'd1240 // 1310; 2250;
