@@ -88,6 +88,10 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
   <img src="Assets/example_V2.jpg" alt="Pomo V2 驱动并口墨水屏" width="850">
 </div>
 
+<div align="center">
+  <img src="Assets/example_V2_2.jpg" alt="Pomo V2 显示16级灰度测试图" width="850">
+</div>
+
 ## 编译 V2 固件
 
 1. 使用高云 Gowin EDA V1.9.12 打开 [`Firmware/V2/Pomo.gprj`](Firmware/V2/Pomo.gprj)。
@@ -115,7 +119,62 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 | `CLEAR_FRAMES` | 设置启动清屏序列最后一帧的零基序号 |
 | `LUT_FRAMES` | 设置波形 LUT 长度 |
 
-当前示例配置采用1216 × 684 MIPI 输入、16位 Source 输出、SY7636A、FAST GREY 启动模式，并关闭像素重排；内部测试视频源帧率为85 Hz。这只是当前开发面板使用的示例，不是所有墨水屏都能直接使用的通用配置。
+当前示例配置采用1216 × 684 MIPI 输入、16位 Source 输出、SY7636A、AUTO LUT 启动模式，并关闭像素重排；内部测试视频源帧率为85 Hz。这只是当前开发面板使用的示例，不是所有墨水屏都能直接使用的通用配置。
+
+### 确定 MIPI 扫描时序
+
+`DEFAULT_H*` 和 `DEFAULT_V*` 描述通过 MIPI DSI 接收到的视频时序，必须与主机实际生成的显示模式完全一致。这些参数不是从墨水屏 Gate Driver 的消隐要求中直接抄来的。
+
+1. 打开 [Video Timings Calculator](https://tomverbeure.github.io/video_timings_calculator)。
+2. 在 **Horizontal Pixels** 中输入逻辑 MIPI 图像宽度，在 **Vertical Pixels** 中输入逻辑图像高度，在 **Refresh Rate (Hz)** 中输入所需刷新率。除非主机有特殊要求，否则使用逐行扫描并关闭 Margins。
+3. 在结果表中只使用 **CVT-RBv2** 一列的参数。不要混用 CVT、CVT-RB、CEA-861 或 DMT 列中的数值。
+4. 按照下表将 CVT-RBv2 结果写入 `Firmware/V2/src/defines.vh`：
+
+| CVT-RBv2 结果 | Pomo 配置 | 单位 |
+|---|---|---|
+| H Active | `DEFAULT_HACT` | 像素 |
+| H Front Porch | `DEFAULT_HFP` | 像素 |
+| H Sync | `DEFAULT_HSYNC` | 像素 |
+| H Back Porch | `DEFAULT_HBP` | 像素 |
+| V Active | `DEFAULT_VACT` | 行 |
+| V Front Porch | `DEFAULT_VFP` | 行 |
+| V Sync | `DEFAULT_VSYNC` | 行 |
+| V Back Porch | `DEFAULT_VBP` | 行 |
+| Pixel Clock | 主机显示时序 | MHz；主机需要时换算为 Hz |
+
+5. 在 Linux MIPI DSI 面板或显示模式中填写完全相同的有效区、前后肩、同步宽度和像素时钟。典型的设备树时序块如下；外层节点以及同步极性属性取决于具体主机显示驱动：
+
+```dts
+display-timings {
+    native-mode = <&timing0>;
+
+    timing0: timing0 {
+        clock-frequency = <PIXEL_CLOCK_HZ>;
+        hactive = <H_ACTIVE>;
+        hfront-porch = <H_FRONT_PORCH>;
+        hsync-len = <H_SYNC>;
+        hback-porch = <H_BACK_PORCH>;
+        vactive = <V_ACTIVE>;
+        vfront-porch = <V_FRONT_PORCH>;
+        vsync-len = <V_SYNC>;
+        vback-porch = <V_BACK_PORCH>;
+    };
+};
+```
+
+6. 编译前检查抄入的参数：
+
+```text
+H_TOTAL = DEFAULT_HACT + DEFAULT_HFP + DEFAULT_HSYNC + DEFAULT_HBP
+V_TOTAL = DEFAULT_VACT + DEFAULT_VFP + DEFAULT_VSYNC + DEFAULT_VBP
+刷新率 = 像素时钟 / (H_TOTAL × V_TOTAL)
+```
+
+除正常的取整误差外，算出的刷新率应当与输入目标一致。每次改变分辨率或刷新率时，都应重新生成一整套 CVT-RBv2 模式，并同时更新主机和 Pomo；只改变像素时钟或单独修改某个 porch，可能导致 FPGA 重建的 MIPI 扫描位置与实际数据包不一致。
+
+`EPD_STV_TO_G1_CKV` 不属于 CVT-RBv2 视频时序。它表示从 Gate Driver 采样 STV 到 G1 选通前一次移位之间的面板 CKV 移位数，应从面板或 Gate Driver 时序规格中获得，不能根据 MIPI 的 `VFP`、`VSYNC` 或 `VBP` 推导。
+
+启用 `EPD_PIXEL_REORDER` 时，计算器和 `DEFAULT_HACT`/`DEFAULT_VACT` 中应填写主机看到的逻辑 MIPI 分辨率。物理墨水屏分辨率由重排逻辑生成，不能作为计算器输入。
 
 ### 像素重排
 
