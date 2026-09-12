@@ -5,7 +5,9 @@
 Firmware/**/.claude/
 Firmware/**/temp/
 Firmware/**/__Previews/
-Firmware/**/impl/
+# Keep the Gowin project Configuration file, but not build products in impl/.
+Firmware/**/impl/*
+!Firmware/**/impl/Pomo_process_config.json
 Firmware/**/__pycache__/
 Firmware/**/*.vo
 Firmware/**/*_tmp.v
@@ -20,6 +22,13 @@ Firmware/**/*.mod
 Firmware/**/project.ini
 Firmware/**/*.prj
 Firmware/**/*.xml
+
+# Version the durable Gowin IP outputs under src, alongside the generated .v.
+# Their temp/ synthesis caches remain ignored.
+!Firmware/**/src/**/*.ipc
+!Firmware/**/src/**/*.vo
+!Firmware/**/src/**/*.mod
+!Firmware/**/src/**/*_tmp.v
 
 # Hardware
 Hardware/**/History/

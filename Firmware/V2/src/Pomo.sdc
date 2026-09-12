@@ -18,7 +18,9 @@ create_clock -name mipi_hs_clk -period 2.165 -waveform {0 1.0825} [get_ports {mi
 create_clock -name mipi_byte_clk -period 8.333 -waveform {0 4.1665} [get_pins {u_vin_mipi/u_mipi_rx_ip/DPHY_RX_INST/u_idesx8/Inst3_CLKDIV/CLKOUT}]
 create_clock -name mipi_pixel_clk -period 12.500 -waveform {0 6.250} [get_pins {u_vin_mipi/u_pll_v_pclk/pllvr_inst/CLKOUT}]
 
-create_generated_clock -name memory_clk -source [get_ports {sys_clk}] -master_clock sys_clk -multiply_by 6 [get_nets {u_fb_hpram/memory_clk}]
+# The HyperRAM PLL currently runs at 165 MHz. Close its fabric at 185 MHz
+# for margin; this constraint does not change the PLL's output frequency.
+create_clock -name memory_clk -period 5.405 -waveform {0 2.7025} [get_nets {u_fb_hpram/memory_clk}]
 create_generated_clock -name hpram_clk -source [get_nets {u_fb_hpram/memory_clk}] -master_clock memory_clk -divide_by 2 [get_nets {u_fb_hpram/hpram_clk}]
 
 # These boundaries all contain explicit synchronizers or asynchronous FIFOs.
