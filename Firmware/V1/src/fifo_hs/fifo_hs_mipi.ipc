@@ -1,0 +1,35 @@
+[General]
+ipc_version=4
+file=fifo_hs_mipi
+module=FIFO_HS_MIPI_Top
+target_device=gw1nsr4c-009
+type=fifo_hs
+version=1.0
+
+[Config]
+AlmostEmptyFlag=false
+AlmostEmptyFlagItem=Empty_Single Threshold Constant Parameter
+AlmostFullFlag=false
+AlmostFullFlagItem=Full_Single Threshold Constant Parameter
+BSRAM=false
+ControlledByRdEn=false
+ECCSelected=false
+EmptyClear=1
+EmptySet=1
+EnReset=true
+FirstWordFallThrough=false
+FullClear=1
+FullSet=1
+LANG=0
+OutputRegistersSelected=false
+REG=true
+ReadDataNum=false
+ReadDataWidth=24
+ReadDepth=8
+ResetSynchronization=true
+SSRAM=false
+StandardFIFO=true
+Synthesis_tool=GowinSynthesis
+WriteDataNum=false
+WriteDataWidth=24
+WriteDepth=8

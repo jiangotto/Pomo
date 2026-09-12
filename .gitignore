@@ -27,8 +27,9 @@ Firmware/**/*.xml
 # Their temp/ synthesis caches remain ignored.
 !Firmware/**/src/**/*.ipc
 !Firmware/**/src/**/*.vo
-!Firmware/**/src/**/*.mod
 !Firmware/**/src/**/*_tmp.v
+# This abandoned FIFO pairing template has no matching IP in the project.
+Firmware/V2/src/fifo_hs/pair_gen/fifo_hs_mipi_pair_tmp.v
 
 # Hardware
 Hardware/**/History/

@@ -1,0 +1,15 @@
+[General]
+ipc_version=4
+file=gowin_prom_lut16
+module=Gowin_pROM_LUT16
+target_device=gw1nsr4c-009
+type=ram_prom
+version=1.0
+
+[Config]
+DEPTH=4096
+LANG=0
+MEM_FILE=../../waveform/gc16.mi
+READ=0
+RESET_MODE=true
+WIDTH=8

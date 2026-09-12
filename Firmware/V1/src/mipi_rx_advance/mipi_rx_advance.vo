@@ -1,0 +1,4029 @@
+//Copyright (C)2014-2025 Gowin Semiconductor Corporation.
+//All rights reserved.
+//File Title: Post-PnR Verilog Simulation Model file
+//Tool Version: V1.9.12 (64-bit)
+//Created Time: Sat Jul 18 17:38:00 2026
+
+`timescale 100 ps/100 ps
+module MIPI_RX_Advance_Top(
+	reset_n,
+	lp_clk_in,
+	lp_clk_dir,
+	lp_data1_in,
+	lp_data1_dir,
+	lp_data0_in,
+	lp_data0_dir,
+	hs_en,
+	clk_term_en,
+	data_term_en,
+	lp_clk_out,
+	clk_byte_out,
+	data_out1,
+	lp_data1_out,
+	data_out0,
+	lp_data0_out,
+	ready,
+	MIPI_CLK_P,
+	MIPI_CLK_N,
+	MIPI_LANE1_P,
+	MIPI_LANE1_N,
+	MIPI_LANE0_P,
+	MIPI_LANE0_N
+);
+input reset_n;
+input [1:0] lp_clk_in;
+input lp_clk_dir;
+input [1:0] lp_data1_in;
+input lp_data1_dir;
+input [1:0] lp_data0_in;
+input lp_data0_dir;
+input hs_en;
+input clk_term_en;
+input data_term_en;
+output [1:0] lp_clk_out;
+output clk_byte_out;
+output [7:0] data_out1;
+output [1:0] lp_data1_out;
+output [7:0] data_out0;
+output [1:0] lp_data0_out;
+output ready;
+inout MIPI_CLK_P;
+inout MIPI_CLK_N;
+inout MIPI_LANE1_P;
+inout MIPI_LANE1_N;
+inout MIPI_LANE0_P;
+inout MIPI_LANE0_N;
+wire GND;
+wire MIPI_CLK_N;
+wire MIPI_CLK_P;
+wire MIPI_LANE0_N;
+wire MIPI_LANE0_P;
+wire MIPI_LANE1_N;
+wire MIPI_LANE1_P;
+wire VCC;
+wire clk_byte_out;
+wire clk_term_en;
+wire [7:0] data_out0;
+wire [7:0] data_out1;
+wire data_term_en;
+wire hs_en;
+wire lp_clk_dir;
+wire [1:0] lp_clk_in;
+wire [1:0] lp_clk_out;
+wire lp_data0_dir;
+wire [1:0] lp_data0_in;
+wire [1:0] lp_data0_out;
+wire lp_data1_dir;
+wire [1:0] lp_data1_in;
+wire [1:0] lp_data1_out;
+wire ready;
+wire reset_n;
+wire \DPHY_RX_INST/HS_CLK ;
+wire \DPHY_RX_INST/n11_4 ;
+wire \DPHY_RX_INST/n19_3 ;
+wire \DPHY_RX_INST/n9_6 ;
+wire \DPHY_RX_INST/n17_6 ;
+wire \DPHY_RX_INST/n23_6 ;
+wire \DPHY_RX_INST/n26_6 ;
+wire [1:0] \DPHY_RX_INST/HS_DATA ;
+wire [7:0] \DPHY_RX_INST/data1 ;
+wire [7:0] \DPHY_RX_INST/data0 ;
+wire \DPHY_RX_INST/u_idesx8/opensync_cken ;
+wire \DPHY_RX_INST/u_idesx8/xstop ;
+wire \DPHY_RX_INST/u_idesx8/dataini_t1 ;
+wire \DPHY_RX_INST/u_idesx8/udel_dataini1_1_DF ;
+wire \DPHY_RX_INST/u_idesx8/dataini_t0 ;
+wire \DPHY_RX_INST/u_idesx8/udel_dataini0_1_DF ;
+wire \DPHY_RX_INST/u_idesx8/eclko ;
+wire [3:0] \DPHY_RX_INST/u_idesx8/opensync ;
+wire \DPHY_RX_INST/u_Aligner/n22_5 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/lane0 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/lane1 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n429_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n430_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n431_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n432_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n433_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n434_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n427_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n330_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n331_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n332_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n333_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n334_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n335_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n336_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n429_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n430_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n431_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n432_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n433_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n434_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n427_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n330_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n330_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n331_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n331_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n332_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n332_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n333_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n333_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n334_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n334_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n335_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n335_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n336_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n336_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_9 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_10 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_11 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_12 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_13 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_14 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_15 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_16 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_17 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n428_18 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n429_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n431_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n432_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n434_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n330_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n330_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n330_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n331_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n331_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n331_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n332_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n332_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n332_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n333_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n333_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n333_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n334_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n334_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n334_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n335_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n335_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n335_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n336_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n336_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n336_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_9 ;
+wire \DPHY_RX_INST/u_Aligner/wd0/n337_10 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/reg0 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/reg1 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/reg2 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/reg3 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/reg4 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/reg5 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd0/shftamt ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n429_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n430_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n431_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n432_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n433_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n434_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n427_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n330_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n332_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n333_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n334_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n335_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n336_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_3 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n429_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n430_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n431_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n432_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n433_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n434_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n427_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n330_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n330_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n332_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n332_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n333_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n333_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n334_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n334_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n335_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n335_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n336_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n336_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_4 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_9 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_10 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_11 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_12 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_13 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_14 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_15 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_16 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_17 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n428_18 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n429_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n431_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n432_5 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n330_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n330_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n330_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_9 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n331_10 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n332_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n332_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n332_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n333_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n333_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n333_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n334_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n334_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n334_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n335_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n335_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n335_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n336_6 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n336_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n336_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_7 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_8 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_9 ;
+wire \DPHY_RX_INST/u_Aligner/wd1/n337_10 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/reg0 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/reg1 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/reg2 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/reg3 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/reg4 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/reg5 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/wd1/shftamt ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_3 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_3 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n160_3 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n260_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n259_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n258_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n257_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n256_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n255_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n254_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n253_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n211_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n210_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n209_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n208_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n207_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n206_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n205_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n204_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n21_4 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n20_4 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n95_4 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n94_4 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_4 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_5 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_4 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_5 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n260_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n260_8 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n259_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n258_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n257_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n256_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n255_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n254_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n253_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n211_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n211_8 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n210_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n209_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n208_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n207_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n206_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n205_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n204_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_8 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_9 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n17_10 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_6 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_8 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_9 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n91_10 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n260_9 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n211_9 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n22_10 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n390_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n23_8 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n96_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n396_7 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/n97_8 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/sync0 ;
+wire \DPHY_RX_INST/u_Aligner/ln0/sync1 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in0_0 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in0_1 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in0_2 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in0_3 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in0_4 ;
+wire [3:0] \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in1_0 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in1_1 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in1_2 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in1_3 ;
+wire [7:0] \DPHY_RX_INST/u_Aligner/ln0/q_in1_4 ;
+wire [3:0] \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt ;
+VCC VCC_cZ (
+  .V(VCC)
+);
+GND GND_cZ (
+  .G(GND)
+);
+GSR GSR (
+	.GSRI(VCC)
+);
+MIPI_IBUF \DPHY_RX_INST/MIPI_IBUF_CLK  (
+	.I(lp_clk_in[1]),
+	.OEN(\DPHY_RX_INST/n9_6 ),
+	.IO(MIPI_CLK_P),
+	.IB(lp_clk_in[0]),
+	.IOB(MIPI_CLK_N),
+	.OENB(\DPHY_RX_INST/n9_6 ),
+	.HSREN(\DPHY_RX_INST/n11_4 ),
+	.OB(lp_clk_out[0]),
+	.OL(lp_clk_out[1]),
+	.OH(\DPHY_RX_INST/HS_CLK )
+);
+MIPI_IBUF \DPHY_RX_INST/MIPI_IBUF_LANE1  (
+	.I(lp_data1_in[1]),
+	.OEN(\DPHY_RX_INST/n17_6 ),
+	.IO(MIPI_LANE1_P),
+	.IB(lp_data1_in[0]),
+	.IOB(MIPI_LANE1_N),
+	.OENB(\DPHY_RX_INST/n17_6 ),
+	.HSREN(\DPHY_RX_INST/n19_3 ),
+	.OB(lp_data1_out[0]),
+	.OL(lp_data1_out[1]),
+	.OH(\DPHY_RX_INST/HS_DATA [1])
+);
+MIPI_IBUF \DPHY_RX_INST/MIPI_IBUF_LANE0  (
+	.I(lp_data0_in[1]),
+	.OEN(\DPHY_RX_INST/n23_6 ),
+	.IO(MIPI_LANE0_P),
+	.IB(lp_data0_in[0]),
+	.IOB(MIPI_LANE0_N),
+	.OENB(\DPHY_RX_INST/n23_6 ),
+	.HSREN(\DPHY_RX_INST/n19_3 ),
+	.OB(lp_data0_out[0]),
+	.OL(lp_data0_out[1]),
+	.OH(\DPHY_RX_INST/HS_DATA [0])
+);
+LUT2 \DPHY_RX_INST/n11_s0  (
+	.I0(clk_term_en),
+	.I1(hs_en),
+	.F(\DPHY_RX_INST/n11_4 )
+);
+defparam \DPHY_RX_INST/n11_s0 .INIT=4'h8;
+LUT2 \DPHY_RX_INST/n19_s0  (
+	.I0(hs_en),
+	.I1(data_term_en),
+	.F(\DPHY_RX_INST/n19_3 )
+);
+defparam \DPHY_RX_INST/n19_s0 .INIT=4'h8;
+INV \DPHY_RX_INST/n9_s2  (
+	.I(lp_clk_dir),
+	.O(\DPHY_RX_INST/n9_6 )
+);
+INV \DPHY_RX_INST/n17_s2  (
+	.I(lp_data1_dir),
+	.O(\DPHY_RX_INST/n17_6 )
+);
+INV \DPHY_RX_INST/n23_s2  (
+	.I(lp_data0_dir),
+	.O(\DPHY_RX_INST/n23_6 )
+);
+INV \DPHY_RX_INST/n26_s2  (
+	.I(reset_n),
+	.O(\DPHY_RX_INST/n26_6 )
+);
+LUT4 \DPHY_RX_INST/u_idesx8/LUT4_1  (
+	.I0(VCC),
+	.I1(VCC),
+	.I2(\DPHY_RX_INST/u_idesx8/opensync [3]),
+	.I3(\DPHY_RX_INST/u_idesx8/opensync [0]),
+	.F(\DPHY_RX_INST/u_idesx8/opensync_cken )
+);
+defparam \DPHY_RX_INST/u_idesx8/LUT4_1 .INIT=16'h0A78;
+LUT4 \DPHY_RX_INST/u_idesx8/LUT4_0  (
+	.I0(GND),
+	.I1(GND),
+	.I2(\DPHY_RX_INST/u_idesx8/opensync [1]),
+	.I3(\DPHY_RX_INST/u_idesx8/opensync [0]),
+	.F(\DPHY_RX_INST/u_idesx8/xstop )
+);
+defparam \DPHY_RX_INST/u_idesx8/LUT4_0 .INIT=16'hFFFE;
+DFFCE \DPHY_RX_INST/u_idesx8/opensync_2_s0  (
+	.D(\DPHY_RX_INST/u_idesx8/opensync [1]),
+	.CLK(\DPHY_RX_INST/HS_CLK ),
+	.CE(\DPHY_RX_INST/u_idesx8/opensync_cken ),
+	.CLEAR(\DPHY_RX_INST/n26_6 ),
+	.Q(\DPHY_RX_INST/u_idesx8/opensync [2])
+);
+defparam \DPHY_RX_INST/u_idesx8/opensync_2_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_idesx8/opensync_1_s0  (
+	.D(\DPHY_RX_INST/u_idesx8/opensync [0]),
+	.CLK(\DPHY_RX_INST/HS_CLK ),
+	.CE(\DPHY_RX_INST/u_idesx8/opensync_cken ),
+	.CLEAR(\DPHY_RX_INST/n26_6 ),
+	.Q(\DPHY_RX_INST/u_idesx8/opensync [1])
+);
+defparam \DPHY_RX_INST/u_idesx8/opensync_1_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_idesx8/opensync_3_s0  (
+	.D(\DPHY_RX_INST/u_idesx8/opensync [2]),
+	.CLK(\DPHY_RX_INST/HS_CLK ),
+	.CE(\DPHY_RX_INST/u_idesx8/opensync_cken ),
+	.CLEAR(\DPHY_RX_INST/n26_6 ),
+	.Q(\DPHY_RX_INST/u_idesx8/opensync [3])
+);
+defparam \DPHY_RX_INST/u_idesx8/opensync_3_s0 .INIT=1'b0;
+DFFPE \DPHY_RX_INST/u_idesx8/opensync_0_s0  (
+	.D(\DPHY_RX_INST/u_idesx8/opensync [3]),
+	.CLK(\DPHY_RX_INST/HS_CLK ),
+	.CE(\DPHY_RX_INST/u_idesx8/opensync_cken ),
+	.PRESET(\DPHY_RX_INST/n26_6 ),
+	.Q(\DPHY_RX_INST/u_idesx8/opensync [0])
+);
+defparam \DPHY_RX_INST/u_idesx8/opensync_0_s0 .INIT=1'b1;
+IODELAY \DPHY_RX_INST/u_idesx8/udel_dataini1  (
+	.DI(\DPHY_RX_INST/HS_DATA [1]),
+	.SETN(GND),
+	.SDTAP(GND),
+	.VALUE(GND),
+	.DO(\DPHY_RX_INST/u_idesx8/dataini_t1 ),
+	.DF(\DPHY_RX_INST/u_idesx8/udel_dataini1_1_DF )
+);
+defparam \DPHY_RX_INST/u_idesx8/udel_dataini1 .C_STATIC_DLY=30;
+IDES8 \DPHY_RX_INST/u_idesx8/Inst4_IDES81  (
+	.D(\DPHY_RX_INST/u_idesx8/dataini_t1 ),
+	.PCLK(clk_byte_out),
+	.FCLK(\DPHY_RX_INST/u_idesx8/eclko ),
+	.RESET(\DPHY_RX_INST/n26_6 ),
+	.CALIB(GND),
+	.Q0(\DPHY_RX_INST/data1 [0]),
+	.Q1(\DPHY_RX_INST/data1 [1]),
+	.Q2(\DPHY_RX_INST/data1 [2]),
+	.Q3(\DPHY_RX_INST/data1 [3]),
+	.Q4(\DPHY_RX_INST/data1 [4]),
+	.Q5(\DPHY_RX_INST/data1 [5]),
+	.Q6(\DPHY_RX_INST/data1 [6]),
+	.Q7(\DPHY_RX_INST/data1 [7])
+);
+defparam \DPHY_RX_INST/u_idesx8/Inst4_IDES81 .GSREN="false";
+defparam \DPHY_RX_INST/u_idesx8/Inst4_IDES81 .LSREN="true";
+IODELAY \DPHY_RX_INST/u_idesx8/udel_dataini0  (
+	.DI(\DPHY_RX_INST/HS_DATA [0]),
+	.SETN(GND),
+	.SDTAP(GND),
+	.VALUE(GND),
+	.DO(\DPHY_RX_INST/u_idesx8/dataini_t0 ),
+	.DF(\DPHY_RX_INST/u_idesx8/udel_dataini0_1_DF )
+);
+defparam \DPHY_RX_INST/u_idesx8/udel_dataini0 .C_STATIC_DLY=30;
+IDES8 \DPHY_RX_INST/u_idesx8/Inst4_IDES80  (
+	.D(\DPHY_RX_INST/u_idesx8/dataini_t0 ),
+	.PCLK(clk_byte_out),
+	.FCLK(\DPHY_RX_INST/u_idesx8/eclko ),
+	.RESET(\DPHY_RX_INST/n26_6 ),
+	.CALIB(GND),
+	.Q0(\DPHY_RX_INST/data0 [0]),
+	.Q1(\DPHY_RX_INST/data0 [1]),
+	.Q2(\DPHY_RX_INST/data0 [2]),
+	.Q3(\DPHY_RX_INST/data0 [3]),
+	.Q4(\DPHY_RX_INST/data0 [4]),
+	.Q5(\DPHY_RX_INST/data0 [5]),
+	.Q6(\DPHY_RX_INST/data0 [6]),
+	.Q7(\DPHY_RX_INST/data0 [7])
+);
+defparam \DPHY_RX_INST/u_idesx8/Inst4_IDES80 .GSREN="false";
+defparam \DPHY_RX_INST/u_idesx8/Inst4_IDES80 .LSREN="true";
+DHCEN \DPHY_RX_INST/u_idesx8/u_DHCEN  (
+	.CLKIN(\DPHY_RX_INST/HS_CLK ),
+	.CE(\DPHY_RX_INST/u_idesx8/xstop ),
+	.CLKOUT(\DPHY_RX_INST/u_idesx8/eclko )
+);
+CLKDIV \DPHY_RX_INST/u_idesx8/Inst3_CLKDIV  (
+	.HCLKIN(\DPHY_RX_INST/u_idesx8/eclko ),
+	.RESETN(reset_n),
+	.CALIB(GND),
+	.CLKOUT(clk_byte_out)
+);
+defparam \DPHY_RX_INST/u_idesx8/Inst3_CLKDIV .GSREN="false";
+defparam \DPHY_RX_INST/u_idesx8/Inst3_CLKDIV .DIV_MODE="4";
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n429_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n429_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n429_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n429_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n430_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n430_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n430_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n430_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n431_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n431_4 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n431_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n431_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n432_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n432_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n432_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n432_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n433_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n433_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n433_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n433_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n434_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n434_4 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n434_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n434_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n427_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n427_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n427_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n427_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n330_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg4 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n330_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n330_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n330_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n330_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n331_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg4 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n331_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n331_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n331_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n331_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n332_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg4 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n332_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n332_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n332_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n332_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n333_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n333_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n333_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n333_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n333_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n334_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n334_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n334_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n334_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n334_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n335_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n335_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n335_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n335_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n335_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n336_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n336_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n336_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n336_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n336_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n337_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n337_4 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n337_5 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n337_6 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s0 .INIT=16'hEF00;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n22_s1  (
+	.I0(hs_en),
+	.I1(reset_n),
+	.F(\DPHY_RX_INST/u_Aligner/n22_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n22_s1 .INIT=4'h7;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_8 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_9 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_10 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_11 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_12 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s2 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg5 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg5 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_13 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s3 .INIT=16'h1000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_15 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_17 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_18 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s4 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n429_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg1 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n429_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n429_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n429_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n430_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg1 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n429_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n430_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n430_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n431_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n431_5 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg1 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n431_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n431_s1 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n432_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg0 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg0 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n432_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n432_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n432_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n433_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg0 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg0 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg0 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n432_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n433_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n433_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n434_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n434_5 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg0 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg0 [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n434_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n434_s1 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n427_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg1 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n428_8 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n427_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n427_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n330_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n330_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n330_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n330_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n330_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n330_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg4 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n330_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n330_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n330_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n331_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n331_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n331_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n331_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n331_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n331_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg4 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n331_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n331_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n331_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n332_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n332_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n332_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n332_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n332_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n332_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n332_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n332_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n332_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n333_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n333_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n333_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n333_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n333_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n333_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n333_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n333_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n333_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n334_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n334_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n334_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n334_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n334_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n334_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n334_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n334_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n334_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n335_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n335_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n335_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n335_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n335_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n335_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n335_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n335_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n335_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n336_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n336_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n336_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n336_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n336_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n336_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n336_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n336_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n336_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n337_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/n337_7 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n337_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/n337_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s1 .INIT=16'h0D00;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n337_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s2 .INIT=16'h0007;
+LUT3 \DPHY_RX_INST/u_Aligner/wd0/n337_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/n337_10 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s3 .INIT=8'hAC;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n428_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s5 .INIT=4'h8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg2 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg2 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s6 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s7 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s8  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg2 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg2 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg2 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_11 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s8 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s9  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_12 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s9 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s10  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg5 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg5 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg5 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg5 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_13 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s10 .INIT=16'h0001;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n428_s11  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_14 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s11 .INIT=4'h1;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s12  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg4 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg4 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg4 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg4 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_15 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s12 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s13  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_16 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s13 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s14  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg4 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg4 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_17 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s14 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n428_s15  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg5 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg5 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg4 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/reg4 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n428_18 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n428_s15 .INIT=16'h0001;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n429_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n429_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n429_s2 .INIT=4'h8;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n431_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg0 [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n431_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n431_s2 .INIT=4'h4;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n432_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg1 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg1 [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n432_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n432_s2 .INIT=4'h8;
+LUT2 \DPHY_RX_INST/u_Aligner/wd0/n434_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg0 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg0 [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n434_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n434_s2 .INIT=4'h4;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n330_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n330_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n330_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n330_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n330_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n330_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n330_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg4 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n330_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n330_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n331_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n331_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n331_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n331_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n331_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n331_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n331_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n331_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n331_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n332_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n332_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n332_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n332_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n332_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n332_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n332_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n332_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n332_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n333_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n333_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n333_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n333_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n333_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n333_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n333_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n333_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n333_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n334_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n334_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n334_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n334_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n334_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n334_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n334_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n334_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n334_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n335_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n335_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n335_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n335_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n335_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n335_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n335_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n335_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n335_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n336_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg2 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n336_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n336_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n336_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n336_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n336_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n336_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n336_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n336_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n337_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg2 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s4 .INIT=16'h0007;
+LUT3 \DPHY_RX_INST/u_Aligner/wd0/n337_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/reg2 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s5 .INIT=8'h40;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n337_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s6 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd0/n337_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd0/n337_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/n337_s7 .INIT=16'hF0BB;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_6_s0  (
+	.D(\DPHY_RX_INST/data0 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_5_s0  (
+	.D(\DPHY_RX_INST/data0 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_4_s0  (
+	.D(\DPHY_RX_INST/data0 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_3_s0  (
+	.D(\DPHY_RX_INST/data0 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_2_s0  (
+	.D(\DPHY_RX_INST/data0 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_1_s0  (
+	.D(\DPHY_RX_INST/data0 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_0_s0  (
+	.D(\DPHY_RX_INST/data0 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg1_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg0 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg1 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg1_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg2_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg1 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg2 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg2_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg3_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg2 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg3_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg4_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg3 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg4 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg4_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg5_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/reg4 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg5 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg5_0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_0_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n427_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_1_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n428_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_1_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_2_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n429_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_2_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_3_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n430_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_3_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_4_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n431_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_4_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_5_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n432_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_5_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_6_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n433_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_6_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd0/shftamt_7_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd0/n434_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/shftamt [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/shftamt_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n330_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n331_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n332_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n333_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n334_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n335_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n336_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/dout_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd0/n337_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane0 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/dout_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd0/reg0_7_s0  (
+	.D(\DPHY_RX_INST/data0 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd0/reg0 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd0/reg0_7_s0 .INIT=1'b0;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n429_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n429_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n429_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n429_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n430_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n430_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n430_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n430_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n431_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n431_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n431_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n431_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n432_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n432_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n432_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n432_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n433_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n433_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n433_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n433_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n434_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n434_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n434_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n434_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n427_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n427_4 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_5 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_6 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n427_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n427_s0 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n330_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg4 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n330_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n330_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n330_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n330_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n331_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n331_4 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n331_5 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n331_6 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s0 .INIT=16'hEF00;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n332_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg4 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n332_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n332_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n332_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n332_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n333_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n333_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n333_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n333_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n333_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n334_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n334_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n334_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n334_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n334_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n335_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n335_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n335_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n335_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n335_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n336_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n336_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n336_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n336_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n336_s0 .INIT=16'hFFF8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n337_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n337_4 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n337_5 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n337_6 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s0 .INIT=16'hEF00;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_8 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_9 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_10 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_11 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_12 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s2 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg5 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg5 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_13 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s3 .INIT=16'h1000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_15 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_17 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_18 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s4 .INIT=16'h8000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n429_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg1 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n429_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n429_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n429_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n430_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg1 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n429_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n430_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n430_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n431_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg1 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n431_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n431_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n431_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n432_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg0 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n432_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n432_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n432_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n433_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg0 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg0 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n431_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n433_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n433_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n434_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg0 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg0 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg0 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n432_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n434_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n434_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n427_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg1 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n428_8 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n427_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n427_s1 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n330_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n330_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n330_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n330_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n330_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n330_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg4 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n330_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n330_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n330_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n331_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n331_7 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n331_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n331_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s1 .INIT=16'h0D00;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n331_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s2 .INIT=16'h0007;
+LUT3 \DPHY_RX_INST/u_Aligner/wd1/n331_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg4 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n331_10 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s3 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n332_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n332_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n332_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n332_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n332_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n332_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n332_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n332_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n332_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n333_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n333_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n333_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n333_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n333_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n333_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n333_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n333_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n333_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n334_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n334_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n334_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n334_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n334_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n334_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n334_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n334_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n334_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n335_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n335_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n335_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n335_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n335_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n335_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n335_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n335_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n335_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n336_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n428_14 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n336_6 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/n428_16 ),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n336_7 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n336_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n336_s1 .INIT=16'h7000;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n336_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n336_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n336_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n336_s2 .INIT=16'h0A03;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n337_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/n337_7 ),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n337_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/n337_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s1 .INIT=16'h0D00;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n337_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s2 .INIT=16'h0007;
+LUT3 \DPHY_RX_INST/u_Aligner/wd1/n337_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/n337_10 ),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s3 .INIT=8'hAC;
+LUT2 \DPHY_RX_INST/u_Aligner/wd1/n428_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s5 .INIT=4'h8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg2 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg2 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s6 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s7 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s8  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg2 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg2 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg2 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_11 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s8 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s9  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_12 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s9 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s10  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg5 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg5 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg5 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg5 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_13 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s10 .INIT=16'h0001;
+LUT2 \DPHY_RX_INST/u_Aligner/wd1/n428_s11  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_14 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s11 .INIT=4'h1;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s12  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg4 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg4 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg4 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg4 [5]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_15 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s12 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s13  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_16 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s13 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s14  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg4 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg4 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_17 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s14 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n428_s15  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg5 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg5 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg4 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/reg4 [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n428_18 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n428_s15 .INIT=16'h0001;
+LUT2 \DPHY_RX_INST/u_Aligner/wd1/n429_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg1 [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n429_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n429_s2 .INIT=4'h8;
+LUT2 \DPHY_RX_INST/u_Aligner/wd1/n431_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg0 [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n431_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n431_s2 .INIT=4'h8;
+LUT2 \DPHY_RX_INST/u_Aligner/wd1/n432_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg1 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg0 [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n432_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n432_s2 .INIT=4'h8;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n330_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n330_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n330_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n330_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n330_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n330_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n330_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg4 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n330_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n330_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n331_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s4 .INIT=16'h0007;
+LUT3 \DPHY_RX_INST/u_Aligner/wd1/n331_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s5 .INIT=8'h40;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n331_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s6 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n331_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg4 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n331_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n331_s7 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n332_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n332_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n332_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n332_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n332_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n332_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n332_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n332_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n332_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n333_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n333_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n333_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n333_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n333_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n333_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n333_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n333_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n333_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n334_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n334_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n334_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n334_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n334_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n334_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n334_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n334_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n334_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n335_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n335_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n335_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n335_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n335_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n335_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n335_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n335_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n335_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n336_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [5]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg2 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n336_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n336_s3 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n336_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n336_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n336_s4 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n336_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n336_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n336_s5 .INIT=16'h0F77;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n337_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg2 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s4 .INIT=16'h0007;
+LUT3 \DPHY_RX_INST/u_Aligner/wd1/n337_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/reg2 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s5 .INIT=8'h40;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n337_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s6 .INIT=16'hF0BB;
+LUT4 \DPHY_RX_INST/u_Aligner/wd1/n337_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/wd1/n337_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/n337_s7 .INIT=16'hF0BB;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_6_s0  (
+	.D(\DPHY_RX_INST/data1 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_5_s0  (
+	.D(\DPHY_RX_INST/data1 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_4_s0  (
+	.D(\DPHY_RX_INST/data1 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_3_s0  (
+	.D(\DPHY_RX_INST/data1 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_2_s0  (
+	.D(\DPHY_RX_INST/data1 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_1_s0  (
+	.D(\DPHY_RX_INST/data1 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_0_s0  (
+	.D(\DPHY_RX_INST/data1 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg1_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg0 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg1 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg1_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg2_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg1 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg2 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg2_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg3_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg2 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg3_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg4_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg3 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg4 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg4_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg5_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/reg4 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg5 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg5_0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_0_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n427_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_1_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n428_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_1_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_2_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n429_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_2_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_3_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n430_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_3_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_4_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n431_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_4_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_5_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n432_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_5_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_6_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n433_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_6_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/wd1/shftamt_7_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/wd1/n434_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/shftamt [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/shftamt_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n330_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n331_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n332_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n333_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n334_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n335_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n336_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/dout_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/wd1/n337_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/lane1 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/dout_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/wd1/reg0_7_s0  (
+	.D(\DPHY_RX_INST/data1 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/wd1/reg0 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/wd1/reg0_7_s0 .INIT=1'b0;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n17_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n17_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s0 .INIT=16'h1000;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n91_4 ),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n91_5 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s0 .INIT=16'h1000;
+LUT2 \DPHY_RX_INST/u_Aligner/ln0/n160_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/sync1 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/sync0 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n160_3 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n160_s0 .INIT=4'h8;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n260_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n260_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n260_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n260_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n259_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n259_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n259_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n259_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n258_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n258_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n258_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n258_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n257_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n257_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n257_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n257_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n256_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n256_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n256_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n256_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n255_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n255_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n255_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n255_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n254_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n254_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n254_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n254_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n253_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n253_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n253_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n253_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n211_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n211_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n211_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n211_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n210_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n210_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n210_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n210_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n209_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n209_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n209_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n209_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n208_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n208_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n208_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n208_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n207_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n207_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n207_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n207_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n206_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n206_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n206_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n206_s1 .INIT=16'h8F00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n205_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n205_7 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n205_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n205_s1 .INIT=16'hAC00;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n204_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n204_7 ),
+	.I3(ready),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n204_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n204_s1 .INIT=16'h8F00;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n21_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n21_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n21_s0 .INIT=8'h78;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n20_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n20_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n20_s0 .INIT=16'h7F80;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n95_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [2]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n95_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n95_s0 .INIT=8'h78;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n94_s0  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n94_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n94_s0 .INIT=16'h7F80;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n17_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n17_6 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s1 .INIT=8'h10;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n17_7 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n17_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n17_9 ),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n17_10 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s2 .INIT=16'h8000;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n91_s1  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n91_6 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_4 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s1 .INIT=8'h10;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n91_7 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/n91_8 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n91_9 ),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n91_10 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_5 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s2 .INIT=16'h8000;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n260_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n260_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n260_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n260_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n260_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n260_s3 .INIT=16'h0100;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n259_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n259_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n259_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n258_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n258_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n258_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n257_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n257_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n257_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n256_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n256_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n256_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n255_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n255_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n255_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n254_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [6]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n254_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n254_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n253_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n260_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n260_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n253_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n253_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n211_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n211_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n211_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n211_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [1]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n211_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n211_s3 .INIT=16'h0100;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n210_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [1]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n210_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n210_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n209_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [2]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n209_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n209_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n208_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [3]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n208_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n208_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n207_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [4]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n207_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n207_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n206_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [5]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n206_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n206_s2 .INIT=16'h0FBB;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n205_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [6]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n205_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n205_s2 .INIT=8'hAC;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n204_s2  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/n211_8 ),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [7]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [7]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/n211_9 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n204_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n204_s2 .INIT=16'h0FBB;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s3 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [7]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s4 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [7]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s5 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s6 .INIT=16'h0100;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n17_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n17_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n17_s7 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s3  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_6 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s3 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [4]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [6]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [7]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s4 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s5  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [6]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [5]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [4]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [7]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s5 .INIT=16'h4000;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s6  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s6 .INIT=16'h0100;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n91_s7  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [1]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [2]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [3]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n91_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n91_s7 .INIT=16'h0001;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n260_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n260_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n260_s4 .INIT=16'h0100;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n211_s4  (
+	.I0(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0]),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [2]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [3]),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n211_9 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n211_s4 .INIT=16'h0100;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n22_s2  (
+	.I0(ready),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/sync0 ),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n22_10 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n22_s2 .INIT=16'hBF40;
+LUT2 \DPHY_RX_INST/u_Aligner/ln0/n390_s2  (
+	.I0(ready),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/sync0 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n390_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n390_s2 .INIT=4'h4;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n23_s3  (
+	.I0(ready),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/sync0 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n23_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n23_s3 .INIT=8'hB4;
+LUT4 \DPHY_RX_INST/u_Aligner/ln0/n96_s2  (
+	.I0(ready),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0]),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/sync1 ),
+	.I3(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [1]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n96_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n96_s2 .INIT=16'hBF40;
+LUT2 \DPHY_RX_INST/u_Aligner/ln0/n396_s2  (
+	.I0(ready),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/sync1 ),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n396_7 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n396_s2 .INIT=4'h4;
+LUT3 \DPHY_RX_INST/u_Aligner/ln0/n97_s3  (
+	.I0(ready),
+	.I1(\DPHY_RX_INST/u_Aligner/ln0/sync1 ),
+	.I2(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0]),
+	.F(\DPHY_RX_INST/u_Aligner/ln0/n97_8 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/n97_s3 .INIT=8'hB4;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_1_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_1 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_2_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_2 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_3_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in0_3 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_4 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_4_0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/ln0/sync0_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/ln0/n17_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/sync0 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/sync0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n20_4 ),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/ln0/n390_7 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_3_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n21_4 ),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/ln0/n390_7 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane1 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_0_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_0 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_1_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_1 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_2_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_2 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_3_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [6]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [5]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [4]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [3]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [2]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [1]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/q_in1_3 [0]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in1_4 [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in1_4_0_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/ln0/sync1_s0  (
+	.D(VCC),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/ln0/n91_3 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/sync1 )
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/sync1_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n94_4 ),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/ln0/n396_7 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_3_s0 .INIT=1'b0;
+DFFCE \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n95_4 ),
+	.CLK(clk_byte_out),
+	.CE(\DPHY_RX_INST/u_Aligner/ln0/n396_7 ),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/syncs_active_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n160_3 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(ready)
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/syncs_active_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n204_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n205_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n206_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n207_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n208_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n209_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n210_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n211_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out0[0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_align_data_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n253_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_6_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n254_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[6])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_6_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_5_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n255_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[5])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_5_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_4_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n256_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[4])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_4_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_3_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n257_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[3])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_3_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_2_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n258_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[2])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_2_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_1_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n259_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_1_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_0_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n260_6 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(data_out1[0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_align_data_0_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_7_s0  (
+	.D(\DPHY_RX_INST/u_Aligner/lane0 [7]),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/q_in0_0 [7])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/q_in0_0_7_s0 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_1_s1  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n22_10 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_1_s1 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_0_s1  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n23_8 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane0_cnt [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane0_cnt_0_s1 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_1_s1  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n96_7 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [1])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_1_s1 .INIT=1'b0;
+DFFC \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_0_s1  (
+	.D(\DPHY_RX_INST/u_Aligner/ln0/n97_8 ),
+	.CLK(clk_byte_out),
+	.CLEAR(\DPHY_RX_INST/u_Aligner/n22_5 ),
+	.Q(\DPHY_RX_INST/u_Aligner/ln0/lane1_cnt [0])
+);
+defparam \DPHY_RX_INST/u_Aligner/ln0/lane1_cnt_0_s1 .INIT=1'b0;
+endmodule

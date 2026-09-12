@@ -46,8 +46,7 @@
         <File path="waveform/du.mi" type="file.other" enable="1"/>
         <File path="waveform/du4_wvfm.mi" type="file.other" enable="1"/>
         <File path="waveform/du_wvfm.mi" type="file.other" enable="1"/>
-        <File path="waveform/gc16.mi" type="file.other" enable="1"/>
+        <File path="waveform/gc16_modified.mi" type="file.other" enable="1"/>
         <File path="waveform/gc16_wvfm.mi" type="file.other" enable="1"/>
-        <File path="waveform/gl16.mi" type="file.other" enable="1"/>
     </FileList>
 </Project>

@@ -1,0 +1,12 @@
+[General]
+ipc_version=4
+file=i2c_master
+module=I2C_MASTER_Top
+target_device=gw1nsr4c-000
+type=i2c_master
+version=1.0
+
+[Config]
+DISABLE_IO_INSERTION=true
+LANG=0
+Synthesis_tool=GowinSynthesis
