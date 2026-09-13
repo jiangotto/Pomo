@@ -74,6 +74,7 @@ module mipi_b2p_custom #(
 	// 2 bytes/beat on a 2-lane 1:8 link.
 	// 3 bytes = 1 RGB888 pixel → 3 beats produce 2 pixels.
 	reg [23:0] pixel_buf;
+	reg [23:0] fifo_pixel;
 	reg [1:0]  byte_pos;       // 0,1,2 bytes toward next pixel
 	reg        fifo_wr;
 	reg [15:0] wc_remain;      // bytes remaining in current long packet
@@ -94,6 +95,7 @@ module mipi_b2p_custom #(
 	always @(posedge clk_byte or negedge rst_n_byte) begin
 		if (!rst_n_byte) begin
 			pixel_buf  <= 24'd0;
+			fifo_pixel <= 24'd0;
 			byte_pos   <= 2'd0;
 			fifo_wr    <= 1'b0;
 			wc_remain  <= 16'd0;
@@ -123,11 +125,13 @@ module mipi_b2p_custom #(
 					2'd1: begin
 						pixel_buf[15:8]  <= b0;
 						pixel_buf[23:16] <= b1;
+						fifo_pixel <= {b1, b0, pixel_buf[7:0]};
 						fifo_wr  <= 1'b1;
 						byte_pos <= 2'd0;
 					end
 					2'd2: begin
 						pixel_buf[23:16] <= b0;
+						fifo_pixel <= {b0, pixel_buf[15:0]};
 						fifo_wr  <= 1'b1;
 						pixel_buf[7:0]   <= b1;
 						byte_pos <= 2'd1;
@@ -139,7 +143,7 @@ module mipi_b2p_custom #(
 					case (byte_pos)
 					2'd0: begin pixel_buf[7:0]   <= b0; byte_pos <= 2'd1; end
 					2'd1: begin pixel_buf[15:8]  <= b0; byte_pos <= 2'd2; end
-					2'd2: begin pixel_buf[23:16] <= b0; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
+					2'd2: begin pixel_buf[23:16] <= b0; fifo_pixel <= {b0, pixel_buf[15:0]}; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
 					endcase
 				end else begin
 					// 1 byte: lane1 only (last beat of packet)
@@ -147,7 +151,7 @@ module mipi_b2p_custom #(
 					case (byte_pos)
 					2'd0: begin pixel_buf[7:0]   <= b1; byte_pos <= 2'd1; end
 					2'd1: begin pixel_buf[15:8]  <= b1; byte_pos <= 2'd2; end
-					2'd2: begin pixel_buf[23:16] <= b1; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
+					2'd2: begin pixel_buf[23:16] <= b1; fifo_pixel <= {b1, pixel_buf[15:0]}; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
 					endcase
 				end
 			end else if (!in_pkt) begin
@@ -187,7 +191,10 @@ module mipi_b2p_custom #(
 	wire fifo_overflow = fifo_wr_ready && fifo_wr && fifo_full;
 
 	FIFO_HS_MIPI_Top u_fifo(
-		.Data   (pixel_buf), //input [23:0] Data
+		// fifo_wr is observed on the next byte clock. Keep the completed
+		// pixel separate from pixel_buf, which may already contain byte 0 of
+		// the following pixel by then.
+		.Data   (fifo_pixel), //input [23:0] Data
 		.Reset  (!rst_n_byte), //input Reset
 		.WrClk  (clk_byte), //input WrClk
 		.RdClk  (clk_pixel), //input RdClk
