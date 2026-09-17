@@ -4,7 +4,7 @@
 //Tool Version: V1.9.12 (64-bit)
 //Part Number: GW1NSR-LV4CQN48PC7/I6
 //Device: GW1NSR-4C
-//Created Time: Mon May  4 12:02:38 2026
+//Created Time: Wed Sep 16 21:55:05 2026
 
 //Change the instance name and port connections to the signal names
 //--------Copy here to design--------
