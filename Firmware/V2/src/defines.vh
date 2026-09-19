@@ -48,9 +48,9 @@
 `define DEFAULT_VSYNC       8'd8
 `define DEFAULT_VBP         8'd6
 `define DEFAULT_VACT        10'd684
-`define DEFAULT_HFP         8'd8
+`define DEFAULT_HFP         8'd48
 `define DEFAULT_HSYNC       8'd32
-`define DEFAULT_HBP         8'd40
+`define DEFAULT_HBP         8'd160
 `define DEFAULT_HACT        12'd1216
 
 // ET073TC1-style array mapping:
