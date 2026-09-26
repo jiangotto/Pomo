@@ -394,22 +394,14 @@ module pomo (
 		wire       s3_dith_1b;
 		wire [3:0] s3_dith_4b;
 
-		blue_noise_dithering #(.OUTPUT_BITS(1)) u_dith_1b (
-			.clk   (clk),
-			.rst   (rst),
-			.vin   (s2_vin_linear),
-			.vout  (s3_dith_1b),
-			.x_pos (noise_x),
-			.y_pos (noise_y)
-		);
-
-		blue_noise_dithering #(.OUTPUT_BITS(4)) u_dith_4b (
-			.clk   (clk),
-			.rst   (rst),
-			.vin   (s2_vin_linear),
-			.vout  (s3_dith_4b),
-			.x_pos (noise_x),
-			.y_pos (noise_y)
+		blue_noise_dithering u_dith (
+			.clk     (clk),
+			.rst     (rst),
+			.vin     (s2_vin_linear),
+			.vout_1b (s3_dith_1b),
+			.vout_4b (s3_dith_4b),
+			.x_pos   (noise_x),
+			.y_pos   (noise_y)
 		);
 
 	// ============================================================

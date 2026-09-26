@@ -5,18 +5,16 @@
 //Created Time: 2026-05-17 15:10:57
 create_clock -name sys_clk -period 37.037 -waveform {0 18.518} [get_ports {sys_clk}]
 
-# Worst-case clocks for 1216x684 RGB888 at 85 Hz:
-#   pixel = 1296 * 699 * 85 = 77.000 MHz
-#   two-lane byte clock = pixel * 3 / 2 = 115.500 MHz
-#   differential D-PHY clock = byte clock * 4 = 462.000 MHz
-# Add a small implementation margin: close pixel fabric at 80 MHz and byte
-# fabric at 120 MHz while keeping the D-PHY target at its physical maximum.
+# Validation target for the current 1376x709 RGB888 raster at 75 Hz:
+#   pixel = 1376 * 709 * 75 = 73.169 MHz
+#   two-lane 1:8 byte clock = pixel * 3 / 2 = 109.753 MHz
+#   differential D-PHY clock = byte clock * 4 = 439.013 MHz
 # The PLL output is dynamically divided, so it cannot be described correctly
 # by one static multiply/divide relationship. Constrain the two fabric clocks
-# directly at their maximum supported target rates.
-create_clock -name mipi_hs_clk -period 2.165 -waveform {0 1.0825} [get_ports {mipi_clk_p}]
-create_clock -name mipi_byte_clk -period 8.333 -waveform {0 4.1665} [get_pins {u_vin_mipi/u_mipi_rx_ip/DPHY_RX_INST/u_idesx8/Inst3_CLKDIV/CLKOUT}]
-create_clock -name mipi_pixel_clk -period 12.500 -waveform {0 6.250} [get_pins {u_vin_mipi/u_pll_v_pclk/pllvr_inst/CLKOUT}]
+# directly at the 75 Hz validation rates.
+create_clock -name mipi_hs_clk -period 2.278 -waveform {0 1.139} [get_ports {mipi_clk_p}]
+create_clock -name mipi_byte_clk -period 9.111 -waveform {0 4.5555} [get_pins {u_vin_mipi/u_mipi_rx_ip/DPHY_RX_INST/u_idesx8/Inst3_CLKDIV/CLKOUT}]
+create_clock -name mipi_pixel_clk -period 13.667 -waveform {0 6.8335} [get_pins {u_vin_mipi/u_pll_v_pclk/pllvr_inst/CLKOUT}]
 
 # The HyperRAM PLL currently runs at 165 MHz. Close its fabric at 185 MHz
 # for margin; this constraint does not change the PLL's output frequency.

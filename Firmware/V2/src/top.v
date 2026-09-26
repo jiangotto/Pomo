@@ -51,6 +51,12 @@ module top (
 	wire        bo_clk;
 	wire        bo_vsync;
 	wire        bo_de;
+
+	wire [15:0] fb_bi_data;
+	wire [15:0] fb_bo_data;
+	wire        fb_bi_de;
+	wire        fb_bi_den;
+	wire        fb_bo_de;
 	wire        init_done;
 	wire        sys_ready;
 
@@ -230,6 +236,35 @@ module top (
 		.epd_sdce   (epd_sdce)
 	);
 
+`ifdef EPD_STATE_12BIT
+	// Keep the processing pipeline in its original 16-bit state format. Only
+	// the framebuffer boundary removes/restores the global mode nibble and
+	// packs four 12-bit states into three samples for the proven 16-bit VFB.
+	fb_state_packer #(
+		.STATE_MODE (`EPD_STATE_MODE)
+	) u_fb_state_packer (
+		.rst_n          (sys_rst_n),
+		.pixel_wr_clk   (bo_clk),
+		.pixel_wr_de    (bo_de),
+		.pixel_wr_data  (bo_data),
+		.packed_wr_de   (fb_bo_de),
+		.packed_wr_data (fb_bo_data),
+		.pixel_rd_clk   (bi_clk),
+		.pixel_rd_de    (bi_de),
+		.packed_rd_de   (fb_bi_de),
+		.packed_rd_den  (fb_bi_den),
+		.packed_rd_data (fb_bi_data),
+		.pixel_rd_den   (bi_den),
+		.pixel_rd_data  (bi_data)
+	);
+`else
+	assign fb_bo_de   = bo_de;
+	assign fb_bo_data = bo_data;
+	assign fb_bi_de   = bi_de;
+	assign bi_den     = fb_bi_den;
+	assign bi_data    = fb_bi_data;
+`endif
+
 	// =========================================================================
 	// Framebuffer HyperRAM
 	// =========================================================================
@@ -237,8 +272,8 @@ module top (
 	fb_hpram #(
 		.ADDR_WIDTH     (22),  
 		.DATA_WIDTH     (32),  
-		.WR_VIDEO_WIDTH (16),  
-		.RD_VIDEO_WIDTH (16)
+		.WR_VIDEO_WIDTH (`EPD_FB_VIDEO_WIDTH),
+		.RD_VIDEO_WIDTH (`EPD_FB_VIDEO_WIDTH)
 	) u_fb_hpram (
 		.clk            (sys_clk),
 		.rst_n          (sys_rst_n),
@@ -250,13 +285,13 @@ module top (
 		.IO_hpram_rwds  (IO_hpram_rwds),
 		.bo_clk         (bo_clk),
 		.bo_vsync       (bo_vsync),
-		.bo_de          (bo_de),
-		.bo_data        (bo_data),
+		.bo_de          (fb_bo_de),
+		.bo_data        (fb_bo_data),
 		.bi_clk         (bi_clk),
 		.bi_vsync       (bi_vsync),
-		.bi_de          (bi_de),
-		.bi_den         (bi_den),
-		.bi_data        (bi_data),
+		.bi_de          (fb_bi_de),
+		.bi_den         (fb_bi_den),
+		.bi_data        (fb_bi_data),
 		.init_done      (init_done),
 		.vin_fifo_full  (fb_vin_fifo_full),
 		.vout_fifo_empty(fb_vout_fifo_empty)

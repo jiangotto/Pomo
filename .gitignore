@@ -49,3 +49,6 @@ Hardware/**/Status Report.Txt
 codex_synth_check.tcl
 gowin_commands_probe.tcl
 gowin_generate_mipi_bram_fifo.tcl
+.mipi-research/
+Firmware/**/sim/
+transcript

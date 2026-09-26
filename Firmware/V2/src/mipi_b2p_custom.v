@@ -162,8 +162,44 @@ module mipi_b2p_custom #(
 	end
 
 	// =========================================================================
-	// Async FIFO (24-bit x depth 8)
+	// Pixel-pair packer and async FIFO (48-bit write, 24-bit read)
 	// =========================================================================
+	// A two-lane 1:8 RGB888 stream completes two pixels every three byte
+	// clocks.  Pair those two pixels before crossing the clock boundary so the
+	// FIFO write pointer advances once per three byte clocks instead of on two
+	// consecutive byte clocks.  The asymmetric Gowin FIFO returns Data[23:0]
+	// first and Data[47:24] second, preserving the original pixel order.
+	reg [23:0] pixel_pair_first;
+	reg [47:0] fifo_pixel_pair;
+	reg        pixel_pair_pending;
+	reg        fifo_pair_wr;
+
+	always @(posedge clk_byte or negedge rst_n_byte) begin
+		if (!rst_n_byte) begin
+			pixel_pair_first   <= 24'd0;
+			fifo_pixel_pair    <= 48'd0;
+			pixel_pair_pending <= 1'b0;
+			fifo_pair_wr       <= 1'b0;
+		end else begin
+			fifo_pair_wr <= 1'b0;
+			if (fifo_wr) begin
+				if (!pixel_pair_pending) begin
+					pixel_pair_first   <= fifo_pixel;
+					pixel_pair_pending <= 1'b1;
+				end else begin
+					fifo_pixel_pair    <= {fifo_pixel, pixel_pair_first};
+					pixel_pair_pending <= 1'b0;
+					fifo_pair_wr       <= 1'b1;
+				end
+			end else if (!in_pkt) begin
+				// RGB888 line packets contain an even 1216 pixels.  Dropping an
+				// unmatched pixel here prevents a truncated packet from rotating
+				// the next line's pair boundary.
+				pixel_pair_pending <= 1'b0;
+			end
+		end
+	end
+
 	wire        fifo_empty;
 	wire        fifo_full;
 	wire [23:0] fifo_q;
@@ -188,17 +224,14 @@ module mipi_b2p_custom #(
 	end
 	wire fifo_wr_ready = fifo_wr_startup[3];
 	wire fifo_rd_ready = fifo_rd_startup[3];
-	wire fifo_overflow = fifo_wr_ready && fifo_wr && fifo_full;
+	wire fifo_overflow = fifo_wr_ready && fifo_pair_wr && fifo_full;
 
 	FIFO_HS_MIPI_Top u_fifo(
-		// fifo_wr is observed on the next byte clock. Keep the completed
-		// pixel separate from pixel_buf, which may already contain byte 0 of
-		// the following pixel by then.
-		.Data   (fifo_pixel), //input [23:0] Data
+		.Data   (fifo_pixel_pair), //input [47:0] Data
 		.Reset  (!rst_n_byte), //input Reset
 		.WrClk  (clk_byte), //input WrClk
 		.RdClk  (clk_pixel), //input RdClk
-		.WrEn   (fifo_wr_ready && fifo_wr && !fifo_full), //input WrEn
+		.WrEn   (fifo_wr_ready && fifo_pair_wr && !fifo_full), //input WrEn
 		.RdEn   (fifo_rd_ready && !fifo_empty), //input RdEn
 		.Q      (fifo_q), //output [23:0] Q
 		.Empty  (fifo_empty), //output Empty

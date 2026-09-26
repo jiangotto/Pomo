@@ -11,6 +11,7 @@
         <File path="src/delay.v" type="file.verilog" enable="1"/>
         <File path="src/epd_pixel_reorder.v" type="file.verilog" enable="1"/>
         <File path="src/fb_hpram.v" type="file.verilog" enable="1"/>
+        <File path="src/fb_state_packer.v" type="file.verilog" enable="1"/>
         <File path="src/fifo_hs/fifo_hs_epdc.v" type="file.verilog" enable="1"/>
         <File path="src/fifo_hs/fifo_hs_mipi.v" type="file.verilog" enable="1"/>
         <File path="src/fifo_hs/fifo_hs_vin.v" type="file.verilog" enable="1"/>

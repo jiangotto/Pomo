@@ -37,9 +37,6 @@ module pixel_processing (
 
 	// Pixel state: 16bits
 	// Bit 15-12: Mode
-	// Bit 13-12 is shared
-	localparam MODE_MANUAL_LUT_NO_DITHER = 2'd0; // 00xx
-	localparam MODE_MANUAL_LUT_BLUE_NOISE = 2'd1; // 01xx
 	localparam MODE_FAST_MONO_NO_DITHER = 4'd8; // 1000
 //    localparam MODE_FAST_MONO_BAYER = 4'd9; // 1001
 	localparam MODE_FAST_MONO_BLUE_NOISE = 4'd10; // 1010
@@ -147,7 +144,6 @@ module pixel_processing (
 	// Bit 1-0: Previous frame pixel value
 
 	// Pixel processing
-	wire [1:0] pixel_mode_hi = proc_bi[15:14];
 	wire [3:0] pixel_mode = proc_bi[15:12];
 	wire [1:0] pixel_stage = proc_bi[11:10];
 	wire [5:0] pixel_framecnt = proc_bi[9:4];
@@ -160,7 +156,6 @@ module pixel_processing (
 	wire [5:0] pixel_framecnt_2b = FASTM_W2B_FRAMES - pixel_framecnt + 1;
 
 	// Decode base mode and dither mode
-	localparam BASEMODE_MANUAL_LUT = 2'b00;
 	localparam BASEMODE_FAST_MONO = 2'b01;
 	localparam BASEMODE_FAST_GREY = 2'b10;
 	localparam BASEMODE_AUTO_LUT = 2'b11;
@@ -172,17 +167,7 @@ module pixel_processing (
 	reg [1:0] pixel_basemode;
 	reg [2:0] pixel_dither;
 	always @(*) begin
-		case (pixel_mode_hi)
-		MODE_MANUAL_LUT_NO_DITHER: begin
-			pixel_basemode = BASEMODE_MANUAL_LUT;
-			pixel_dither = DITHER_NONE;
-		end
-		MODE_MANUAL_LUT_BLUE_NOISE: begin
-			pixel_basemode = BASEMODE_MANUAL_LUT;
-			pixel_dither = DITHER_BN_4BIT;
-		end
-		default: begin
-			case (pixel_mode)
+		case (pixel_mode)
 			MODE_FAST_MONO_NO_DITHER: begin
 				pixel_basemode = BASEMODE_FAST_MONO;
 				pixel_dither = DITHER_NONE;
@@ -208,8 +193,6 @@ module pixel_processing (
 				pixel_basemode = BASEMODE_FAST_MONO;
 				pixel_dither = DITHER_NONE;
 			end
-			endcase
-		end
 		endcase
 	end
 
@@ -235,16 +218,6 @@ module pixel_processing (
 		proc_bo     = proc_bi;
 
 		case (pixel_basemode)
-		BASEMODE_MANUAL_LUT: begin
-			if (pixel_framecnt != 0) begin
-				proc_output = proc_lut_rd;
-				proc_bo = {proc_bi[15:10], pixel_framecnt_dec, proc_bi[3:0]};
-			end
-			else begin
-				proc_output = `NO_DRIVE;
-				proc_bo = proc_bi;
-			end
-		end
 		BASEMODE_AUTO_LUT: begin
 			if (pixel_stage == STAGE_MONO) begin
 				if ((proc_vinnd[3] != pixel_prev[0]) && (pixel_mindrv == 2'd0)) begin
@@ -432,10 +405,6 @@ module pixel_processing (
 			proc_bo = {MODE_AUTO_LUT_NO_DITHER, STAGE_DONE, 6'd0, 4'hF};
 	`elsif INIT_MODE_AUTO_LUT_BN
 			proc_bo = {MODE_AUTO_LUT_BLUE_NOISE, STAGE_DONE, 6'd0, 4'hF};
-	`elsif INIT_MODE_MANUAL_LUT
-			proc_bo = {MODE_MANUAL_LUT_NO_DITHER, 4'hF, 6'd0, 4'hF};
-	`elsif INIT_MODE_MANUAL_LUT_BN
-			proc_bo = {MODE_MANUAL_LUT_BLUE_NOISE, 4'hF, 6'd0, 4'hF};
 	`else
 			proc_bo = {MODE_FAST_MONO_NO_DITHER, 2'b0, 6'd0, 3'd0, 1'b1};
 	`endif
