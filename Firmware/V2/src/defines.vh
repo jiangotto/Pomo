@@ -82,8 +82,8 @@
 // === 默认启动模式（选一个取消注释）===
 //`define INIT_MODE_FAST_MONO
 //`define INIT_MODE_FAST_MONO_BN
-`define INIT_MODE_FAST_GREY
-//`define INIT_MODE_AUTO_LUT
+//`define INIT_MODE_FAST_GREY
+`define INIT_MODE_AUTO_LUT
 //`define INIT_MODE_AUTO_LUT_BN
 
 // === Framebuffer pixel-state storage ===

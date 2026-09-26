@@ -4,7 +4,7 @@
 //Tool Version: V1.9.12 (64-bit)
 //Part Number: GW1NSR-LV4CQN48PC7/I6
 //Device: GW1NSR-4C
-//Created Time: Fri Sep 18 23:09:30 2026
+//Created Time: Sat Sep 26 20:47:19 2026
 
 //Change the instance name and port connections to the signal names
 //--------Copy here to design--------
@@ -19,13 +19,13 @@
 		.clk_byte_out(clk_byte_out), //output clk_byte_out
 		.MIPI_LANE1_P(MIPI_LANE1_P), //inout MIPI_LANE1_P
 		.MIPI_LANE1_N(MIPI_LANE1_N), //inout MIPI_LANE1_N
-		.data_out1(data_out1), //output [7:0] data_out1
+		.data_out1(data_out1), //output [15:0] data_out1
 		.lp_data1_out(lp_data1_out), //output [1:0] lp_data1_out
 		.lp_data1_in(lp_data1_in), //input [1:0] lp_data1_in
 		.lp_data1_dir(lp_data1_dir), //input lp_data1_dir
 		.MIPI_LANE0_P(MIPI_LANE0_P), //inout MIPI_LANE0_P
 		.MIPI_LANE0_N(MIPI_LANE0_N), //inout MIPI_LANE0_N
-		.data_out0(data_out0), //output [7:0] data_out0
+		.data_out0(data_out0), //output [15:0] data_out0
 		.lp_data0_out(lp_data0_out), //output [1:0] lp_data0_out
 		.lp_data0_in(lp_data0_in), //input [1:0] lp_data0_in
 		.lp_data0_dir(lp_data0_dir), //input lp_data0_dir

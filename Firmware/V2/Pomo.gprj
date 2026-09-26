@@ -16,7 +16,7 @@
         <File path="src/fifo_hs/fifo_hs_mipi.v" type="file.verilog" enable="1"/>
         <File path="src/fifo_hs/fifo_hs_vin.v" type="file.verilog" enable="1"/>
         <File path="src/gowin_pllvr/gowin_pllvr_hyperram.v" type="file.verilog" enable="1"/>
-        <File path="src/gowin_pllvr/gowin_pllvr_m2d3.v" type="file.verilog" enable="1"/>
+        <File path="src/gowin_pllvr/gowin_pllvr_m4d3.v" type="file.verilog" enable="1"/>
         <File path="src/gowin_prom/gowin_prom_lut16.v" type="file.verilog" enable="1"/>
         <File path="src/gowin_prom/gowin_prom_noise.v" type="file.verilog" enable="1"/>
         <File path="src/gowin_sp/gowin_sp_error.v" type="file.verilog" enable="1"/>

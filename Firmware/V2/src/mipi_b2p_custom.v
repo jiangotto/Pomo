@@ -22,8 +22,8 @@ module mipi_b2p_custom #(
 	input  wire        i_lp_av_en,     // o_lp_av_en & ecc_ok
 	input  wire [5:0]  i_dt,
 	input  wire [15:0] i_wc,           // word count (payload bytes)
-	input  wire [15:0] i_payload,      // 2 bytes per beat (2-lane 1:8)
-	input  wire [1:0]  i_payload_dv,   // byte-valid per payload byte
+	input  wire [31:0] i_payload,      // 4 bytes per beat (2-lane 1:16)
+	input  wire [3:0]  i_payload_dv,   // byte-valid per payload byte
 
 	// === pixel clock domain outputs ===
 	input  wire        clk_pixel,
@@ -69,136 +69,79 @@ module mipi_b2p_custom #(
 	end
 
 	// =========================================================================
-	// byte clock domain --- Byte Assembler (3 bytes → 1 pixel)
+	// byte clock domain --- 1:16 byte assembler
 	// =========================================================================
-	// 2 bytes/beat on a 2-lane 1:8 link.
-	// 3 bytes = 1 RGB888 pixel → 3 beats produce 2 pixels.
-	reg [23:0] pixel_buf;
-	reg [23:0] fifo_pixel;
-	reg [1:0]  byte_pos;       // 0,1,2 bytes toward next pixel
-	reg        fifo_wr;
-	reg [15:0] wc_remain;      // bytes remaining in current long packet
-	reg        i_lp_av_en_d;   // edge detect for WC load
+	// The parser presents up to four ordered bytes per beat. Accumulate them in
+	// stream order and write two complete RGB888 pixels (six bytes) per FIFO
+	// entry. Since fewer than six bytes remain after each write, no beat can
+	// require more than one FIFO write.
+	reg [71:0] byte_buffer;
+	reg [3:0]  byte_count;
+	reg [47:0] fifo_pixel_pair;
+	reg        fifo_pair_wr;
+	reg        packet_active;
+	reg        payload_seen;
 
-	wire lane0_vld = i_payload_dv[0];
-	wire lane1_vld = i_payload_dv[1];
+	wire payload_valid = |i_payload_dv;
+	wire in_pkt = i_lp_av_en || packet_active;
 
-	wire [7:0] b0 = i_payload[7:0];     // lane0 byte
-	wire [7:0] b1 = i_payload[15:8];    // lane1 byte
-
-	wire        in_pkt = i_lp_av_en || (wc_remain > 0);
-
-	always @(posedge clk_byte) begin
-		i_lp_av_en_d <= i_lp_av_en;
-	end
-
-	always @(posedge clk_byte or negedge rst_n_byte) begin
-		if (!rst_n_byte) begin
-			pixel_buf  <= 24'd0;
-			fifo_pixel <= 24'd0;
-			byte_pos   <= 2'd0;
-			fifo_wr    <= 1'b0;
-			wc_remain  <= 16'd0;
-		end else begin
-			fifo_wr <= 1'b0;
-
-			// Load WC at start of new long packet
-			if (i_lp_av_en && !i_lp_av_en_d) begin
-				wc_remain <= i_wc;
-				byte_pos  <= 2'd0;
-				pixel_buf <= 24'd0;
-			end
-
-			if (in_pkt && (lane0_vld || lane1_vld)) begin
-				// PAYLOAD_DV already qualifies each byte from the protocol parser.
-				// Rechecking WC here was redundant and put the 16-bit packet word
-				// count comparator on every pixel_buf/fifo_wr data path.
-				if (lane0_vld && lane1_vld) begin
-					// 2 bytes this beat
-					wc_remain <= i_lp_av_en ? (i_wc - 16'd2) : (wc_remain - 16'd2);
-					case (byte_pos)
-					2'd0: begin
-						pixel_buf[7:0]   <= b0;
-						pixel_buf[15:8]  <= b1;
-						byte_pos <= 2'd2;
-					end
-					2'd1: begin
-						pixel_buf[15:8]  <= b0;
-						pixel_buf[23:16] <= b1;
-						fifo_pixel <= {b1, b0, pixel_buf[7:0]};
-						fifo_wr  <= 1'b1;
-						byte_pos <= 2'd0;
-					end
-					2'd2: begin
-						pixel_buf[23:16] <= b0;
-						fifo_pixel <= {b0, pixel_buf[15:0]};
-						fifo_wr  <= 1'b1;
-						pixel_buf[7:0]   <= b1;
-						byte_pos <= 2'd1;
-					end
-					endcase
-				end else if (lane0_vld) begin
-					// 1 byte: lane0 only (last beat of packet)
-					wc_remain <= i_lp_av_en ? (i_wc - 16'd1) : (wc_remain - 16'd1);
-					case (byte_pos)
-					2'd0: begin pixel_buf[7:0]   <= b0; byte_pos <= 2'd1; end
-					2'd1: begin pixel_buf[15:8]  <= b0; byte_pos <= 2'd2; end
-					2'd2: begin pixel_buf[23:16] <= b0; fifo_pixel <= {b0, pixel_buf[15:0]}; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
-					endcase
-				end else begin
-					// 1 byte: lane1 only (last beat of packet)
-					wc_remain <= i_lp_av_en ? (i_wc - 16'd1) : (wc_remain - 16'd1);
-					case (byte_pos)
-					2'd0: begin pixel_buf[7:0]   <= b1; byte_pos <= 2'd1; end
-					2'd1: begin pixel_buf[15:8]  <= b1; byte_pos <= 2'd2; end
-					2'd2: begin pixel_buf[23:16] <= b1; fifo_pixel <= {b1, pixel_buf[15:0]}; fifo_wr <= 1'b1; byte_pos <= 2'd0; end
-					endcase
-				end
-			end else if (!in_pkt) begin
-				// between packets — reset, safe to drop partial bytes
-				byte_pos  <= 2'd0;
+	reg [71:0] appended_bytes;
+	reg [3:0]  appended_count;
+	integer append_index;
+	always @* begin
+		appended_bytes = byte_buffer;
+		appended_count = byte_count;
+		for (append_index = 0; append_index < 4; append_index = append_index + 1) begin
+			if (i_payload_dv[append_index]) begin
+				appended_bytes[appended_count * 8 +: 8] =
+					i_payload[append_index * 8 +: 8];
+				appended_count = appended_count + 1'b1;
 			end
 		end
 	end
 
-	// =========================================================================
-	// Pixel-pair packer and async FIFO (48-bit write, 24-bit read)
-	// =========================================================================
-	// A two-lane 1:8 RGB888 stream completes two pixels every three byte
-	// clocks.  Pair those two pixels before crossing the clock boundary so the
-	// FIFO write pointer advances once per three byte clocks instead of on two
-	// consecutive byte clocks.  The asymmetric Gowin FIFO returns Data[23:0]
-	// first and Data[47:24] second, preserving the original pixel order.
-	reg [23:0] pixel_pair_first;
-	reg [47:0] fifo_pixel_pair;
-	reg        pixel_pair_pending;
-	reg        fifo_pair_wr;
-
 	always @(posedge clk_byte or negedge rst_n_byte) begin
 		if (!rst_n_byte) begin
-			pixel_pair_first   <= 24'd0;
-			fifo_pixel_pair    <= 48'd0;
-			pixel_pair_pending <= 1'b0;
-			fifo_pair_wr       <= 1'b0;
+			byte_buffer    <= 72'd0;
+			byte_count     <= 4'd0;
+			fifo_pixel_pair <= 48'd0;
+			fifo_pair_wr   <= 1'b0;
+			packet_active  <= 1'b0;
+			payload_seen   <= 1'b0;
 		end else begin
 			fifo_pair_wr <= 1'b0;
-			if (fifo_wr) begin
-				if (!pixel_pair_pending) begin
-					pixel_pair_first   <= fifo_pixel;
-					pixel_pair_pending <= 1'b1;
+
+			if (i_lp_av_en) begin
+				packet_active <= 1'b1;
+				payload_seen  <= 1'b0;
+				byte_buffer   <= 72'd0;
+				byte_count    <= 4'd0;
+			end else if (packet_active && payload_valid) begin
+				payload_seen <= 1'b1;
+				if (appended_count >= 4'd6) begin
+					fifo_pixel_pair <= appended_bytes[47:0];
+					fifo_pair_wr    <= 1'b1;
+					byte_buffer     <= appended_bytes >> 48;
+					byte_count      <= appended_count - 4'd6;
 				end else begin
-					fifo_pixel_pair    <= {fifo_pixel, pixel_pair_first};
-					pixel_pair_pending <= 1'b0;
-					fifo_pair_wr       <= 1'b1;
+					byte_buffer <= appended_bytes;
+					byte_count  <= appended_count;
 				end
-			end else if (!in_pkt) begin
-				// RGB888 line packets contain an even 1216 pixels.  Dropping an
-				// unmatched pixel here prevents a truncated packet from rotating
-				// the next line's pair boundary.
-				pixel_pair_pending <= 1'b0;
+			end else if (packet_active && payload_seen) begin
+				packet_active <= 1'b0;
+				payload_seen  <= 1'b0;
+				byte_buffer   <= 72'd0;
+				byte_count    <= 4'd0;
+			end else if (!packet_active) begin
+				byte_count <= 4'd0;
 			end
 		end
 	end
+
+	// =========================================================================
+	// Asynchronous FIFO (48-bit write, 24-bit read)
+	// =========================================================================
+	// Gowin returns Data[23:0] before Data[47:24], preserving stream order.
 
 	wire        fifo_empty;
 	wire        fifo_full;

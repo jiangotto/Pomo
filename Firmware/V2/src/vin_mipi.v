@@ -41,22 +41,20 @@ module vin_mipi (
 	wire [1:0] lp_data0_out;
 	wire [1:0] lp_data1_out;
 	wire       clk_byte_out;
-	wire [7:0] data_out0;
-	wire [7:0] data_out1;
+	wire [15:0] data_out0;
+	wire [15:0] data_out1;
 	wire       ready;
 
 	reg        hs_en_reg;
-	reg        hs_mask;
-	reg [1:0]  hs_mask_cnt;
-	reg [4:0]  hs_tail_cnt;
+	reg [3:0]  hs_tail_cnt;
 
 	// Protocol layer outputs
 	wire        o_sp_en;
 	wire        o_lp_av_en;
 	wire [5:0]  o_dt;
 	wire [15:0] o_wc;
-	wire [15:0] o_payload;
-	wire [1:0]  o_payload_dv;
+	wire [31:0] o_payload;
+	wire [3:0]  o_payload_dv;
 	wire        ecc_ok;
 
 	// Pixel converter outputs
@@ -95,59 +93,44 @@ module vin_mipi (
 		.ready       (ready)
 	);
 
-	reg [1:0] lp_data0_out_d0;
-	reg [1:0] lp_data0_out_d1;
-	reg [1:0] lp_data0_out_d2;
+	// The generated receiver uses MIPI IO, so the HS input and termination
+	// follow the data-lane LP state. LP01 -> LP00 is the D-PHY request to enter
+	// high-speed reception; returning to LP11 marks the end of the burst.
+	reg [1:0] lp_data0_d0;
+	reg [1:0] lp_data0_d1;
+	reg [1:0] lp_data0_d2;
 
 	always @(posedge clk_byte_out or negedge rst_n) begin
 		if (!rst_n) begin
-			lp_data0_out_d0 <= 2'd0;
-			lp_data0_out_d1 <= 2'd0;
-			lp_data0_out_d2 <= 2'd0;
+			lp_data0_d0 <= 2'b11;
+			lp_data0_d1 <= 2'b11;
+			lp_data0_d2 <= 2'b11;
 		end else begin
-			lp_data0_out_d0 <= lp_data0_out;
-			lp_data0_out_d1 <= lp_data0_out_d0;
-			lp_data0_out_d2 <= lp_data0_out_d1;
+			lp_data0_d0 <= lp_data0_out;
+			lp_data0_d1 <= lp_data0_d0;
+			lp_data0_d2 <= lp_data0_d1;
 		end
 	end
 
-	wire from_1_to_0 = (lp_data0_out_d2 == 2'd1) && (lp_data0_out_d1 == 2'd0);
-	wire from_x_to_3 = (lp_data0_out_d2 != 2'd3) && (lp_data0_out_d1 == 2'd3);
+	wire enter_hs = (lp_data0_d2 == 2'b01) && (lp_data0_d1 == 2'b00);
+	wire leave_hs = (lp_data0_d2 != 2'b11) && (lp_data0_d1 == 2'b11);
 
 	always @(posedge clk_byte_out or negedge rst_n) begin
 		if (!rst_n) begin
-			hs_en_reg <= 1'b0;
-			hs_tail_cnt <= 5'd0;
-		end else if (from_1_to_0) begin
-			hs_en_reg <= 1'b1;
-			hs_tail_cnt <= 5'd0;
-		end else if (from_x_to_3) begin
-			// The D-PHY byte/align pipeline is still producing READY/data after
-			// the physical lane has returned to LP11. Keep HS enabled long enough
-			// to flush a complete short-packet header.
-			hs_tail_cnt <= 5'd16;
+			hs_en_reg   <= 1'b0;
+			hs_tail_cnt <= 4'd0;
+		end else if (enter_hs) begin
+			hs_en_reg   <= 1'b1;
+			hs_tail_cnt <= 4'd0;
+		end else if (leave_hs) begin
+			// The former 1:8 path used 16 byte-clock cycles to drain the RX
+			// alignment pipeline. A 1:16 word clock carries twice as many bits,
+			// so eight cycles preserve exactly the same physical drain time.
+			hs_tail_cnt <= 4'd8;
 		end else if (hs_tail_cnt != 0) begin
-			hs_tail_cnt <= hs_tail_cnt - 5'd1;
-			if (hs_tail_cnt == 5'd1)
+			hs_tail_cnt <= hs_tail_cnt - 1'b1;
+			if (hs_tail_cnt == 4'd1)
 				hs_en_reg <= 1'b0;
-		end
-	end
-
-	always @(posedge clk_byte_out or negedge rst_n) begin
-		if (!rst_n) begin
-			hs_mask_cnt <= 1'd0;
-		end else if (hs_en_reg) begin
-			hs_mask_cnt <= (&hs_mask_cnt) ? hs_mask_cnt : (hs_mask_cnt + 1'd1);
-		end else begin
-			hs_mask_cnt <= 1'd0;
-		end
-	end
-
-	always @(posedge clk_byte_out or negedge rst_n) begin
-		if (!rst_n) begin
-			hs_mask <= 1'b1;
-		end else begin
-			hs_mask <= (&hs_mask_cnt) ? 1'b0 : 1'b1;
 		end
 	end
 
@@ -187,8 +170,8 @@ module vin_mipi (
 	reg o_lp_av_en_dl;
 	reg [5:0]  o_dt_dl;
 	reg [15:0] o_wc_dl;
-	reg [15:0] o_payload_dl;
-	reg [1:0]  o_payload_dv_dl;
+	reg [31:0] o_payload_dl;
+	reg [3:0]  o_payload_dv_dl;
 
 	always @(posedge clk_byte_out) begin
 		o_sp_en_dl <= o_sp_en & ecc_ok;
@@ -251,7 +234,7 @@ module vin_mipi (
 		.pll_ready (pixel_pll_ready)
 	);
 
-	Gowin_PLLVR_M2D3 u_pll_v_pclk(
+	Gowin_PLLVR_M4D3 u_pll_v_pclk(
 		.clkout (clk_pixel_out),
 		.lock   (lock),
 		.reset  (pixel_pll_reset),
@@ -331,7 +314,7 @@ module vin_mipi (
 		.i_lp_av_en     (o_lp_av_en_dl),     // o_lp_av_en & ecc_ok
 		.i_dt           (o_dt_dl),
 		.i_wc           (o_wc_dl),           // word count (payload bytes)
-		.i_payload      (o_payload_dl),      // 2 bytes per beat (2-lane 1:8)
+		.i_payload      (o_payload_dl),      // 4 bytes per beat (2-lane 1:16)
 		.i_payload_dv   (o_payload_dv_dl),   // byte-valid per payload byte
 		.clk_pixel      (clk_pixel_out),
 		.rst_n_pixel    (rst_n_pixel_sync),

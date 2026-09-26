@@ -1,6 +1,6 @@
 // Measure the MIPI byte clock against the 27 MHz system clock and select the
 // largest PLLVR ODIV that keeps the VCO at or below 1200 MHz.
-// Pixel clock = byte clock * 2 / 3 (IDIV=3, FBDIV=2).
+// Pixel clock = 1:16 word clock * 4 / 3 (IDIV=3, FBDIV=4).
 module mipi_pll_odiv_ctrl (
 	input  wire       clk_ref,
 	input  wire       clk_byte,
@@ -51,16 +51,16 @@ module mipi_pll_odiv_ctrl (
 	function [5:0] choose_odsel;
 		input [23:0] byte_edges;
 		begin
-			if      (byte_edges >= 24'd1092267) choose_odsel = 6'b111111; // /2
-			else if (byte_edges >= 24'd546134)  choose_odsel = 6'b111110; // /4
-			else if (byte_edges >= 24'd273067)  choose_odsel = 6'b111100; // /8
-			else if (byte_edges >= 24'd136534)  choose_odsel = 6'b111000; // /16
-			else if (byte_edges >= 24'd68267)   choose_odsel = 6'b110000; // /32
-			else if (byte_edges >= 24'd45512)   choose_odsel = 6'b101000; // /48
-			else if (byte_edges >= 24'd34134)   choose_odsel = 6'b100000; // /64
-			else if (byte_edges >= 24'd27307)   choose_odsel = 6'b011000; // /80
-			else if (byte_edges >= 24'd22756)   choose_odsel = 6'b010000; // /96
-			else if (byte_edges >= 24'd19505)   choose_odsel = 6'b001000; // /112
+			if      (byte_edges >= 24'd546134) choose_odsel = 6'b111111; // /2
+			else if (byte_edges >= 24'd273067) choose_odsel = 6'b111110; // /4
+			else if (byte_edges >= 24'd136534) choose_odsel = 6'b111100; // /8
+			else if (byte_edges >= 24'd68267)  choose_odsel = 6'b111000; // /16
+			else if (byte_edges >= 24'd34134)  choose_odsel = 6'b110000; // /32
+			else if (byte_edges >= 24'd22756)  choose_odsel = 6'b101000; // /48
+			else if (byte_edges >= 24'd17067)  choose_odsel = 6'b100000; // /64
+			else if (byte_edges >= 24'd13654)  choose_odsel = 6'b011000; // /80
+			else if (byte_edges >= 24'd11378)  choose_odsel = 6'b010000; // /96
+			else if (byte_edges >= 24'd9753)   choose_odsel = 6'b001000; // /112
 			else                                choose_odsel = 6'b000000; // /128
 		end
 	endfunction
@@ -88,7 +88,7 @@ module mipi_pll_odiv_ctrl (
 			measure_timer     <= 16'd0;
 			count_previous    <= 24'd0;
 			count_delta       <= 24'd0;
-			odsel             <= 6'b110000; // safe default: ODIV=32
+			odsel             <= 6'b111000; // safe default: ODIV=16
 			configured        <= 1'b0;
 			reset_hold        <= 6'd0;
 			pll_reset         <= 1'b1;
@@ -96,7 +96,7 @@ module mipi_pll_odiv_ctrl (
 			lock_sync         <= 1'b0;
 			lock_stable_count <= 16'd0;
 			pll_ready         <= 1'b0;
-			candidate_odsel   <= 6'b110000;
+			candidate_odsel   <= 6'b111000;
 			candidate_stable_count <= 4'd0;
 			reconfigure_count <= 16'd0;
 			unlock_count      <= 16'd0;
