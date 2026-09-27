@@ -128,6 +128,24 @@ The main build-time switches are defined in [`Firmware/V2/src/defines.vh`](Firmw
 
 The current example configuration uses a 1216 × 684 MIPI input, 16-bit source output, packed 12-bit framebuffer states, SY7636A, MONO startup mode, and pixel reorder disabled. The internal test source runs at 85 Hz. This is an example for the panel currently under development, not a universal setting.
 
+#### Why `EPD_STATE_12BIT` exists
+
+This option changes only the representation stored through the framebuffer; it does **not** change the RGB888 MIPI input into 12-bit color, reduce the EPD output bus width, or reduce the available display modes or grayscale levels.
+
+The processing pipeline's original 16-bit per-pixel state contains a 4-bit display-mode field plus 12 bits of actual per-pixel state. Because the display mode is global and identical for every pixel, repeatedly storing that upper nibble wastes HyperRAM bandwidth. With `EPD_STATE_12BIT` enabled, Pomo removes the repeated mode nibble, packs four 12-bit states into three samples of the existing 16-bit VFB, and restores the current global mode after reading:
+
+```text
+original storage: 4 pixels × 16 bits = 64 bits
+packed storage:   4 pixels × 12 bits = 48 bits
+```
+
+This reduces both framebuffer write and read traffic from 2 bytes to 1.5 bytes per pixel—a 25% reduction—which provides the memory-bandwidth margin needed for high input refresh rates such as the currently tested 85 Hz mode.
+
+- Leave `EPD_STATE_12BIT` defined for the bandwidth-optimized path.
+- Comment it out to use the original one-16-bit-state-per-pixel path for comparison, debugging, or an incompatible raster width.
+- The framebuffer-side active width (`EPD_HACT` after optional pixel reorder) must be divisible by four, because packing restarts at every line and each group contains four pixels. The current width of 1216 satisfies this requirement. With `EPD_PIXEL_REORDER`, the resulting physical width—not only `DEFAULT_HACT`—must satisfy it.
+- No 24-bit VFB IP is required; the optimization deliberately retains the proven 16-bit VFB configuration.
+
 ### MIPI receiver configuration and signal integrity
 
 The two generated MIPI IPs must use matching settings:
