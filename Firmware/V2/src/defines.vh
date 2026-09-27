@@ -79,31 +79,16 @@
 `define CLEAR_FRAMES        10'd31
 `define LUT_FRAMES          6'd48
 
-// === 默认启动模式（选一个取消注释）===
-//`define INIT_MODE_FAST_MONO
-//`define INIT_MODE_FAST_MONO_BN
-//`define INIT_MODE_FAST_GREY
-`define INIT_MODE_AUTO_LUT
-//`define INIT_MODE_AUTO_LUT_BN
+// === Default startup mode ===
+// 8: mono, A: mono + blue noise, B: fast grey, C: auto LUT.
+// Runtime MIPI commands may change this after startup. Auto LUT + blue noise
+// (D) remains implemented but is not currently exposed as a selectable mode.
+`define EPD_DEFAULT_MODE      4'h8
 
 // === Framebuffer pixel-state storage ===
 // Enabled: store four 12-bit states in three samples through the 16-bit VFB.
 // Disabled: keep the original one 16-bit state per VFB sample path.
 `define EPD_STATE_12BIT
-
-`ifdef INIT_MODE_FAST_MONO
-`define EPD_STATE_MODE       4'h8
-`elsif INIT_MODE_FAST_MONO_BN
-`define EPD_STATE_MODE       4'hA
-`elsif INIT_MODE_FAST_GREY
-`define EPD_STATE_MODE       4'hB
-`elsif INIT_MODE_AUTO_LUT
-`define EPD_STATE_MODE       4'hC
-`elsif INIT_MODE_AUTO_LUT_BN
-`define EPD_STATE_MODE       4'hD
-`else
-`define EPD_STATE_MODE       4'h8
-`endif
 
 `define EPD_FB_VIDEO_WIDTH   16
 

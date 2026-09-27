@@ -8,10 +8,9 @@
 // VFB. Four 12-bit states are packed into three 16-bit VFB samples, reducing
 // memory traffic from 2 bytes/pixel to 1.5 bytes/pixel without relying on the
 // VFB IP's 24<->32-bit converter.
-module fb_state_packer #(
-	parameter [3:0] STATE_MODE = 4'hC
-) (
+module fb_state_packer (
 	input  wire        rst_n,
+	input  wire [3:0]  state_mode,
 	input  wire        pixel_wr_clk,
 	input  wire        pixel_wr_de,
 	input  wire [15:0] pixel_wr_data,
@@ -121,9 +120,9 @@ module fb_state_packer #(
 
 	assign pixel_rd_den = packed_rd_den || rd_state_d_valid;
 	assign pixel_rd_data = packed_rd_den ?
-		(rd_response_phase == 2'd0 ? {STATE_MODE, packed_rd_data[11:0]} :
-		 rd_response_phase == 2'd1 ? {STATE_MODE, packed_rd_data[7:0], rd_state_b_low} :
-		                            {STATE_MODE, packed_rd_data[3:0], rd_state_c_low}) :
-		{STATE_MODE, rd_state_d};
+		(rd_response_phase == 2'd0 ? {state_mode, packed_rd_data[11:0]} :
+		 rd_response_phase == 2'd1 ? {state_mode, packed_rd_data[7:0], rd_state_b_low} :
+		                            {state_mode, packed_rd_data[3:0], rd_state_c_low}) :
+		{state_mode, rd_state_d};
 
 endmodule

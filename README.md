@@ -35,8 +35,9 @@ The MIPI input has been tested with Luckfox and Waveshare development boards. De
 ## V2 highlights
 
 - 2-lane MIPI DSI RGB888 video input
+- Gowin MIPI receiver configured for two lanes in 1:16 mode
 - Dynamically measured MIPI byte clock and runtime PLL output-divider selection
-- HyperRAM framebuffer for current and target pixel states
+- HyperRAM framebuffer for current and target pixel states, with optional packed 12-bit state storage
 - 16-bit EPD source bus: eight 2-bit drive pixels are loaded per SDCLK
 - Source and gate timing generation for parallel-interface EPD panels
 - Selectable SY7636A or TPS65185 PMIC control; V2 defaults to SY7636A
@@ -45,6 +46,9 @@ The MIPI input has been tested with Luckfox and Waveshare development boards. De
 - Blue-noise dithering and multiple waveform/update modes
 - FIFO, framebuffer and frame-level fault detection with safe EPD output suppression
 - Wider horizontal timing counters for high-resolution panels such as 1216 × 684
+- Runtime display-mode switching through an in-stream MIPI DSI generic short packet
+
+The current 1216 × 684 configuration has been tested at up to 85 Hz. This result depends on a short, well-routed FPC connection and correctly tuned D-PHY input delay; it is not a guaranteed limit for every host, cable, or PCB.
 
 ## Data path
 
@@ -96,10 +100,11 @@ The header provides 3.3 V, VBUS, ground, and the four JTAG signals. Check orient
 
 1. Open [`Firmware/V2/Pomo.gprj`](Firmware/V2/Pomo.gprj) in Gowin EDA V1.9.12.
 2. Edit [`Firmware/V2/src/defines.vh`](Firmware/V2/src/defines.vh) for the target PMIC, panel timing, source width, waveform mode, and VCOM voltage.
-3. Run **Synthesis → Place & Route → Generate Bitstream**.
-4. Program the FPGA through the JTAG header.
+3. Verify that both generated MIPI IPs use two lanes and the same **1:16** D-PHY mode. The checked-in receiver configuration uses byte/lane alignment and an input delay of 46 on both data lanes; retune this value for the actual board and cable.
+4. Run **Synthesis → Place & Route → Generate Bitstream** and confirm that both setup and hold timing pass.
+5. Program the FPGA through the JTAG header.
 
-The checked-in project uses the Gowin-generated MIPI D-PHY and asynchronous FIFO modules. Generated implementation output under `impl/` is intentionally excluded from version control.
+The checked-in project uses Gowin-generated MIPI D-PHY, protocol-decoder, PLL, framebuffer and FIFO modules. The generated IP configuration and source under `Firmware/V2/src` are tracked because regenerating an IP with different GUI settings changes hardware behavior. Disposable synthesis, simulation and implementation products are excluded from version control.
 
 ## V2 firmware configuration
 
@@ -113,13 +118,47 @@ The main build-time switches are defined in [`Firmware/V2/src/defines.vh`](Firmw
 | `EPD_TEST_PATTERN_MODE` | Select one of the static or animated internal test patterns |
 | `EPD_TEST_PATTERN_FPS` | Set the frame rate of the internal test source |
 | `EPD_PIXEL_REORDER` | Convert a logical `2W × H` input into a physical `W × 2H` panel raster |
+| `EPD_DEFAULT_MODE` | Select the power-on display mode: `8` MONO, `A` MONO + blue noise, `B` GREY, or `C` AUTO LUT |
+| `EPD_STATE_12BIT` | Pack four 12-bit pixel states into three 16-bit VFB samples, reducing framebuffer traffic by 25% compared with one 16-bit state per pixel |
 | `DEFAULT_*` | Set the expected MIPI active area, sync and porch timing |
 | `EPD_STV_TO_G1_CKV` | Set the panel-specific CKV shift distance from STV sampling through the shift immediately before G1 |
 | `VCOM_VOL` | Set panel VCOM in millivolts; always verify against the panel datasheet |
 | `CLEAR_FRAMES` | Set the final zero-based index of the startup clear sequence |
 | `LUT_FRAMES` | Set the waveform LUT length |
 
-The current example configuration uses a 1216 × 684 MIPI input, 16-bit source output, SY7636A, AUTO LUT startup mode, and pixel reorder disabled. The internal test source runs at 85 Hz. This is an example for the panel currently under development, not a universal setting.
+The current example configuration uses a 1216 × 684 MIPI input, 16-bit source output, packed 12-bit framebuffer states, SY7636A, MONO startup mode, and pixel reorder disabled. The internal test source runs at 85 Hz. This is an example for the panel currently under development, not a universal setting.
+
+### MIPI receiver configuration and signal integrity
+
+The two generated MIPI IPs must use matching settings:
+
+- **MIPI RX Advance:** two data lanes, 1:16 D-PHY mode, byte alignment enabled, lane alignment enabled.
+- **MIPI DSI/CSI-2 Receiver:** DSI interface, two RX lanes, 1:16 D-PHY mode, I/O insertion disabled.
+
+At high lane rates, a syntactically correct design may still show split frames, snow, or corrupted pixels when the sampling eye is too narrow. Use the shortest practical FPC, keep both lanes well matched, and tune `HS Data0/1 IO Delay Value` using repeatable test images. The current value of 46 is a result for the tested Pomo/RK3506 connection, not a panel parameter. This GW1NSR-4C configuration does not perform automatic IODELAY training, so a different host, PCB, or cable may require a new value.
+
+For the current two-lane RGB888 1:16 path:
+
+```text
+pixel clock     = H_TOTAL × V_TOTAL × refresh rate
+1:16 word clock = pixel clock × 3 / 4
+D-PHY clock     = pixel clock × 6
+```
+
+When changing resolution or maximum refresh rate, update the corresponding clock constraints in `Firmware/V2/src/Pomo.sdc` as well as the video timing in `defines.vh`. Do not hide failures by removing the HS, byte, pixel, or HyperRAM constraints.
+
+### Runtime display-mode switching
+
+The display mode can be changed without rebuilding the FPGA by sending a MIPI DSI **Generic Short Write, 2 parameters** packet (`DT = 0x23`):
+
+| Payload | Mode |
+|---|---|
+| `50 08` | MONO |
+| `50 0A` | MONO + blue noise |
+| `50 0B` | GREY |
+| `50 0C` | AUTO LUT |
+
+Send this packet in HS while the controller remains in video mode. Do **not** switch the DesignWare DSI host's `MODE_CFG` to command mode and back: doing so restarts the video packetizer at an arbitrary horizontal phase and can shift the image. A Linux kernel panel/bridge driver should normally issue the packet through `mipi_dsi_generic_write()`. If a diagnostic register-level tool is used, it must leave `MODE_CFG`, `VID_MODE_CFG`, and the running video timing unchanged and only enqueue the HS short packet through the generic-command FIFO.
 
 ### Determining the MIPI scan timing
 

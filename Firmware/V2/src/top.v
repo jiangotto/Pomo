@@ -108,6 +108,10 @@ module top (
 	wire        mipi_hsync;
 	wire        mipi_de;
 	wire [3:0]  mipi_pixel;
+	wire        mipi_ready;
+	wire        mipi_mode_cmd_valid;
+	wire [3:0]  mipi_mode_cmd_value;
+	wire [3:0]  active_mode;
 	(* syn_keep = 1 *) wire        mipi_stream_fault;
 	(* syn_keep = 1 *) wire [15:0] mipi_fifo_overflow_count;
 	(* syn_keep = 1 *) wire [15:0] mipi_fifo_empty_count;
@@ -131,13 +135,19 @@ module top (
 		.v_hsync     (mipi_hsync),
 		.v_de        (mipi_de),
 		.v_pixel     (mipi_pixel),
+		.v_ready     (mipi_ready),
+		.v_mode_cmd_valid(mipi_mode_cmd_valid),
+		.v_mode_cmd_value(mipi_mode_cmd_value),
 		.v_stream_fault(mipi_stream_fault),
 		.v_fifo_overflow_count(mipi_fifo_overflow_count),
 		.v_fifo_empty_count(mipi_fifo_empty_count)
 	);
 
 `ifdef EPD_INTERNAL_TEST
+	wire video_domain_rst_n = sys_rst_n;
 	wire selected_stream_fault = 1'b0;
+	wire selected_mode_cmd_valid = 1'b0;
+	wire [3:0] selected_mode_cmd_value = 4'h0;
 	wire [31:0] test_frame_count;
 
 	internal_video_gen #(
@@ -165,7 +175,10 @@ module top (
 		.frame_count (test_frame_count)
 	);
 `else
+	wire video_domain_rst_n = sys_rst_n & mipi_ready;
 	wire selected_stream_fault = mipi_stream_fault;
+	wire selected_mode_cmd_valid = mipi_mode_cmd_valid;
+	wire [3:0] selected_mode_cmd_value = mipi_mode_cmd_value;
 	assign source_pclk  = mipi_pclk;
 	assign source_vsync = mipi_vsync;
 	assign source_hsync = mipi_hsync;
@@ -211,12 +224,14 @@ module top (
 	pomo u_pomo (
 		.clk        (vin_pclk),
 		.sys_ready  (sys_ready),
-		.rst        (~sys_rst_n),
+		.rst        (~video_domain_rst_n),
 		.vin_vsync  (vin_vsync),
 		.vin_hsync  (vin_hsync),
 		.vin_de     (vin_de),
 		.vin_pixel  (vin_pixel),
 		.vin_stream_fault(selected_stream_fault),
+		.mode_cmd_valid(selected_mode_cmd_valid),
+		.mode_cmd_value(selected_mode_cmd_value),
 		.fb_wr_full (fb_vin_fifo_full),
 		.fb_rd_empty(fb_vout_fifo_empty),
 		.bo_clk     (bo_clk),
@@ -228,6 +243,7 @@ module top (
 		.bi_de      (bi_de),
 		.bi_den     (bi_den),
 		.bi_data    (bi_data),
+		.active_mode(active_mode),
 		.epd_gdclk  (epd_gdclk),
 		.epd_gdsp   (epd_gdsp),
 		.epd_sdclk  (epd_sdclk),
@@ -240,10 +256,9 @@ module top (
 	// Keep the processing pipeline in its original 16-bit state format. Only
 	// the framebuffer boundary removes/restores the global mode nibble and
 	// packs four 12-bit states into three samples for the proven 16-bit VFB.
-	fb_state_packer #(
-		.STATE_MODE (`EPD_STATE_MODE)
-	) u_fb_state_packer (
-		.rst_n          (sys_rst_n),
+	fb_state_packer u_fb_state_packer (
+		.rst_n          (video_domain_rst_n),
+		.state_mode     (active_mode),
 		.pixel_wr_clk   (bo_clk),
 		.pixel_wr_de    (bo_de),
 		.pixel_wr_data  (bo_data),

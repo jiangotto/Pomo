@@ -29,6 +29,9 @@ module vin_mipi (
 	output wire         v_hsync,
 	output wire         v_de,     // filtered active-video region
 	output wire [3:0]   v_pixel,
+	output wire         v_ready,
+	output wire         v_mode_cmd_valid,
+	output wire [3:0]   v_mode_cmd_value,
 	output wire         v_stream_fault,
 	output wire [15:0]  v_fifo_overflow_count,
 	output wire [15:0]  v_fifo_empty_count
@@ -57,6 +60,45 @@ module vin_mipi (
 	wire [3:0]  o_payload_dv;
 	wire        ecc_ok;
 
+	// Runtime display-mode command: DSI Generic Short Write with two
+	// parameters (DT 0x23), carrying 0x50 and a mode byte whose low nibble is
+	// 8/A/B/C. Mode D remains implemented downstream but is intentionally not
+	// selectable for now. Accept both parameter byte orders because receiver
+	// revisions have exposed the short-packet data word in both conventions.
+	function is_display_mode;
+		input [3:0] mode;
+		begin
+			is_display_mode = (mode == 4'h8) || (mode == 4'hA) ||
+			                  (mode == 4'hB) || (mode == 4'hC);
+		end
+	endfunction
+
+	reg [3:0] mode_cmd_data_byte;
+	reg       mode_cmd_toggle_byte;
+	wire mode_cmd_low_first = (o_wc[7:0] == 8'h50) &&
+		is_display_mode(o_wc[11:8]);
+	wire mode_cmd_high_first = (o_wc[15:8] == 8'h50) &&
+		is_display_mode(o_wc[3:0]);
+	wire mode_cmd_packet = o_sp_en && ecc_ok && (o_dt == 6'h23) &&
+		(mode_cmd_low_first || mode_cmd_high_first);
+
+	always @(posedge clk_byte_out or negedge rst_n) begin
+		if (!rst_n) begin
+			mode_cmd_data_byte   <= 4'h0;
+			mode_cmd_toggle_byte <= 1'b0;
+		end else if (mode_cmd_packet) begin
+			mode_cmd_data_byte <= mode_cmd_low_first ? o_wc[11:8] : o_wc[3:0];
+			mode_cmd_toggle_byte <= ~mode_cmd_toggle_byte;
+		end
+	end
+
+	// Runtime commands are inserted into the continuing video stream.  They
+	// must not reset the receiver: doing so resets the destination side of the
+	// toggle CDC while its source state survives, which can discard the first
+	// command after a reset.  Only the board reset resets the MIPI chain.
+	wire stream_reset_request = 1'b0;
+	wire rx_stream_rst_n = rst_n;
+
 	// Pixel converter outputs
 	wire        clk_pixel_out;
 	wire        conv_vsync;
@@ -68,7 +110,7 @@ module vin_mipi (
 	// MIPI PHY
 	// =========================================================================
 	MIPI_RX_Advance_Top u_mipi_rx_ip(
-		.reset_n     (rst_n),
+		.reset_n     (rx_stream_rst_n),
 		.MIPI_CLK_P  (mipi_clk_p),
 		.MIPI_CLK_N  (mipi_clk_n),
 		.lp_clk_out  (lp_clk_out),
@@ -100,8 +142,8 @@ module vin_mipi (
 	reg [1:0] lp_data0_d1;
 	reg [1:0] lp_data0_d2;
 
-	always @(posedge clk_byte_out or negedge rst_n) begin
-		if (!rst_n) begin
+	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
+		if (!rx_stream_rst_n) begin
 			lp_data0_d0 <= 2'b11;
 			lp_data0_d1 <= 2'b11;
 			lp_data0_d2 <= 2'b11;
@@ -115,8 +157,8 @@ module vin_mipi (
 	wire enter_hs = (lp_data0_d2 == 2'b01) && (lp_data0_d1 == 2'b00);
 	wire leave_hs = (lp_data0_d2 != 2'b11) && (lp_data0_d1 == 2'b11);
 
-	always @(posedge clk_byte_out or negedge rst_n) begin
-		if (!rst_n) begin
+	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
+		if (!rx_stream_rst_n) begin
 			hs_en_reg   <= 1'b0;
 			hs_tail_cnt <= 4'd0;
 		end else if (enter_hs) begin
@@ -148,7 +190,7 @@ module vin_mipi (
 	// Protocol parser
 	// =========================================================================
 	MIPI_DSI_CSI2_RX_Top u_mipi_protocol(
-		.I_RSTN      (rst_n),
+		.I_RSTN      (rx_stream_rst_n),
 		.I_BYTE_CLK  (clk_byte_out),
 		.I_REF_DT    (6'h3E),      // RGB888
 		.I_READY     (ready),
@@ -173,13 +215,22 @@ module vin_mipi (
 	reg [31:0] o_payload_dl;
 	reg [3:0]  o_payload_dv_dl;
 
-	always @(posedge clk_byte_out) begin
-		o_sp_en_dl <= o_sp_en & ecc_ok;
-		o_lp_av_en_dl <= o_lp_av_en & ecc_ok;
-		o_dt_dl <= o_dt;
-		o_wc_dl <= o_wc;
-		o_payload_dl <= o_payload;
-		o_payload_dv_dl <= o_payload_dv;
+	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
+		if (!rx_stream_rst_n) begin
+			o_sp_en_dl      <= 1'b0;
+			o_lp_av_en_dl   <= 1'b0;
+			o_dt_dl         <= 6'd0;
+			o_wc_dl         <= 16'd0;
+			o_payload_dl    <= 32'd0;
+			o_payload_dv_dl <= 4'd0;
+		end else begin
+			o_sp_en_dl      <= o_sp_en & ecc_ok;
+			o_lp_av_en_dl   <= o_lp_av_en & ecc_ok;
+			o_dt_dl         <= o_dt;
+			o_wc_dl         <= o_wc;
+			o_payload_dl    <= o_payload;
+			o_payload_dv_dl <= o_payload_dv;
+		end
 	end
 
 	//wire w_sp_en    = o_sp_en    & ecc_ok;
@@ -195,8 +246,8 @@ module vin_mipi (
 	reg [10:0] last_frm_lp_cnt; // completed frame, for debug
 	wire       frm_rst = o_sp_en && ecc_ok && (o_dt == 6'h01);
 
-	always @(posedge clk_byte_out or negedge rst_n) begin
-		if (!rst_n) begin
+	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
+		if (!rx_stream_rst_n) begin
 			frm_sp_cnt  <= 11'd0;
 			frm_ecc_cnt <= 11'd0;
 			frm_lp_cnt  <= 11'd0;
@@ -273,6 +324,40 @@ module vin_mipi (
 
 	wire rst_n_byte_sync  = byte_reset_sync[2];
 	wire rst_n_pixel_sync = pixel_reset_sync[2];
+	assign v_ready = rst_n_pixel_sync;
+
+	// Toggle-based bundled-data CDC. mode_cmd_data_byte remains stable until
+	// the next command, giving it multiple pixel clocks to settle before the
+	// synchronized toggle emits a one-cycle command pulse.
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] mode_toggle_sync;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [3:0] mode_data_sync_0;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [3:0] mode_data_sync_1;
+	reg       mode_toggle_seen;
+	reg       mode_cmd_valid_pixel;
+	reg [3:0] mode_cmd_value_pixel;
+
+	always @(posedge clk_pixel_out or negedge rst_n_pixel_sync) begin
+		if (!rst_n_pixel_sync) begin
+			mode_toggle_sync     <= 3'b000;
+			mode_data_sync_0     <= 4'h0;
+			mode_data_sync_1     <= 4'h0;
+			mode_toggle_seen     <= 1'b0;
+			mode_cmd_valid_pixel <= 1'b0;
+			mode_cmd_value_pixel <= 4'h0;
+		end else begin
+			mode_toggle_sync <= {mode_toggle_sync[1:0], mode_cmd_toggle_byte};
+			mode_data_sync_0 <= mode_cmd_data_byte;
+			mode_data_sync_1 <= mode_data_sync_0;
+			mode_cmd_valid_pixel <= (mode_toggle_sync[2] != mode_toggle_seen);
+			if (mode_toggle_sync[2] != mode_toggle_seen) begin
+				mode_toggle_seen <= mode_toggle_sync[2];
+				mode_cmd_value_pixel <= mode_data_sync_1;
+			end
+		end
+	end
+
+	assign v_mode_cmd_valid = mode_cmd_valid_pixel;
+	assign v_mode_cmd_value = mode_cmd_value_pixel;
 
 	// =========================================================================
 	// Byte stream -> 1-pixel RGB888 stream
@@ -316,6 +401,7 @@ module vin_mipi (
 		.i_wc           (o_wc_dl),           // word count (payload bytes)
 		.i_payload      (o_payload_dl),      // 4 bytes per beat (2-lane 1:16)
 		.i_payload_dv   (o_payload_dv_dl),   // byte-valid per payload byte
+		.i_stream_reset (stream_reset_request),
 		.clk_pixel      (clk_pixel_out),
 		.rst_n_pixel    (rst_n_pixel_sync),
 		.o_vsync        (conv_vsync),

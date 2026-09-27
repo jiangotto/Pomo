@@ -24,6 +24,7 @@ module mipi_b2p_custom #(
 	input  wire [15:0] i_wc,           // word count (payload bytes)
 	input  wire [31:0] i_payload,      // 4 bytes per beat (2-lane 1:16)
 	input  wire [3:0]  i_payload_dv,   // byte-valid per payload byte
+	input  wire        i_stream_reset, // async assertion from stable sys_clk
 
 	// === pixel clock domain outputs ===
 	input  wire        clk_pixel,
@@ -38,6 +39,28 @@ module mipi_b2p_custom #(
 	output reg  [15:0] o_empty_count
 );
 
+	// The MIPI clocks can stop while the host sends a command. Assert reset
+	// asynchronously so stopped domains are still cleared, then release it
+	// through a local three-stage synchronizer in each clock domain.
+	wire stream_rst_n_byte_async = rst_n_byte && !i_stream_reset;
+	wire stream_rst_n_pixel_async = rst_n_pixel && !i_stream_reset;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] stream_byte_reset_sync;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] stream_pixel_reset_sync;
+	always @(posedge clk_byte or negedge stream_rst_n_byte_async) begin
+		if (!stream_rst_n_byte_async)
+			stream_byte_reset_sync <= 3'b000;
+		else
+			stream_byte_reset_sync <= {stream_byte_reset_sync[1:0], 1'b1};
+	end
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel_async) begin
+		if (!stream_rst_n_pixel_async)
+			stream_pixel_reset_sync <= 3'b000;
+		else
+			stream_pixel_reset_sync <= {stream_pixel_reset_sync[1:0], 1'b1};
+	end
+	wire stream_rst_n_byte = stream_byte_reset_sync[2];
+	wire stream_rst_n_pixel = stream_pixel_reset_sync[2];
+
 	// =========================================================================
 	// byte clock domain --- Sync FSM
 	// =========================================================================
@@ -46,17 +69,20 @@ module mipi_b2p_custom #(
 	reg        vs_level;         // vsync level (set/clear, CDC to pixel clock)
 	reg        hs_toggle;        // hsync toggle (flip per line, edge→pulse in px)
 	reg [ 7:0] vs_line_cnt;      // count hsync pulses within vsync
+	reg        frame_ready_byte; // accept payload only after a clean VSS
 
-	always @(posedge clk_byte or negedge rst_n_byte) begin
-		if (!rst_n_byte) begin
+	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+		if (!stream_rst_n_byte) begin
 			vs_level    <= 1'b0;
 			hs_toggle   <= 1'b0;
 			vs_line_cnt <= 8'd0;
+			frame_ready_byte <= 1'b0;
 		end else if (i_sp_en) begin
 			if (i_dt == 6'h01) begin              // V Sync Start
 				vs_level    <= 1'b1;
 				hs_toggle   <= ~hs_toggle;        // first hsync of the frame
 				vs_line_cnt <= 8'd1;
+				frame_ready_byte <= 1'b1;
 			end else if (i_dt == 6'h21) begin      // H Sync Start
 				hs_toggle <= ~hs_toggle;
 				if (vs_level) begin
@@ -100,8 +126,8 @@ module mipi_b2p_custom #(
 		end
 	end
 
-	always @(posedge clk_byte or negedge rst_n_byte) begin
-		if (!rst_n_byte) begin
+	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+		if (!stream_rst_n_byte) begin
 			byte_buffer    <= 72'd0;
 			byte_count     <= 4'd0;
 			fifo_pixel_pair <= 48'd0;
@@ -111,7 +137,7 @@ module mipi_b2p_custom #(
 		end else begin
 			fifo_pair_wr <= 1'b0;
 
-			if (i_lp_av_en) begin
+			if (frame_ready_byte && i_lp_av_en) begin
 				packet_active <= 1'b1;
 				payload_seen  <= 1'b0;
 				byte_buffer   <= 72'd0;
@@ -153,14 +179,14 @@ module mipi_b2p_custom #(
 	// and Gray pointers to settle before normal traffic starts.
 	reg [3:0] fifo_wr_startup;
 	reg [3:0] fifo_rd_startup;
-	always @(posedge clk_byte or negedge rst_n_byte) begin
-		if (!rst_n_byte)
+	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+		if (!stream_rst_n_byte)
 			fifo_wr_startup <= 4'b0000;
 		else
 			fifo_wr_startup <= {fifo_wr_startup[2:0], 1'b1};
 	end
-	always @(posedge clk_pixel or negedge rst_n_pixel) begin
-		if (!rst_n_pixel)
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
+		if (!stream_rst_n_pixel)
 			fifo_rd_startup <= 4'b0000;
 		else
 			fifo_rd_startup <= {fifo_rd_startup[2:0], 1'b1};
@@ -171,7 +197,7 @@ module mipi_b2p_custom #(
 
 	FIFO_HS_MIPI_Top u_fifo(
 		.Data   (fifo_pixel_pair), //input [47:0] Data
-		.Reset  (!rst_n_byte), //input Reset
+		.Reset  (!stream_rst_n_byte), //input Reset
 		.WrClk  (clk_byte), //input WrClk
 		.RdClk  (clk_pixel), //input RdClk
 		.WrEn   (fifo_wr_ready && fifo_pair_wr && !fifo_full), //input WrEn
@@ -182,8 +208,8 @@ module mipi_b2p_custom #(
 	);
 
 	reg frame_fault_byte;
-	always @(posedge clk_byte or negedge rst_n_byte) begin
-		if (!rst_n_byte) begin
+	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+		if (!stream_rst_n_byte) begin
 			frame_fault_byte <= 1'b0;
 			o_overflow_count <= 16'd0;
 		end else begin
@@ -210,16 +236,21 @@ module mipi_b2p_custom #(
 	reg        cdc_valid;
 	reg [1:0]  cdc_data;   // {vs_level, hs_toggle}
 
-	always @(posedge clk_byte) begin
-		vs_level_d  <= vs_level;
-		hs_toggle_d <= hs_toggle;
+	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+		if (!stream_rst_n_byte) begin
+			vs_level_d  <= 1'b0;
+			hs_toggle_d <= 1'b0;
+		end else begin
+			vs_level_d  <= vs_level;
+			hs_toggle_d <= hs_toggle;
+		end
 	end
 
 	wire vs_chg = vs_level  ^ vs_level_d;
 	wire hs_chg = hs_toggle ^ hs_toggle_d;
 
-	always @(posedge clk_byte or negedge rst_n_byte) begin
-		if (!rst_n_byte) begin
+	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+		if (!stream_rst_n_byte) begin
 			cdc_valid <= 1'b0;
 			cdc_data  <= 2'd0;
 		end else if (vs_chg || hs_chg) begin
@@ -236,8 +267,8 @@ module mipi_b2p_custom #(
 	reg [1:0]  packet_active_sync;
 	reg [1:0]  frame_fault_sync;
 
-	always @(posedge clk_pixel or negedge rst_n_pixel) begin
-		if (!rst_n_pixel) begin
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
+		if (!stream_rst_n_pixel) begin
 			cdc_valid_sync <= 3'd0;
 			px_vs_level    <= 1'b0;
 			px_hs_toggle   <= 1'b0;
@@ -260,8 +291,8 @@ module mipi_b2p_custom #(
 	reg [5:0] hs_cnt;
 	reg       hs_active;
 
-	always @(posedge clk_pixel or negedge rst_n_pixel) begin
-		if (!rst_n_pixel) begin
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
+		if (!stream_rst_n_pixel) begin
 			hs_cnt    <= 6'd0;
 			hs_active <= 1'b0;
 		end else begin
@@ -285,8 +316,8 @@ module mipi_b2p_custom #(
 	// a long packet is active. The active-level CDC can extend slightly beyond
 	// the packet boundary, so this counter does not directly kill a frame.
 	reg empty_seen;
-	always @(posedge clk_pixel or negedge rst_n_pixel) begin
-		if (!rst_n_pixel) begin
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
+		if (!stream_rst_n_pixel) begin
 			o_empty_count <= 16'd0;
 			empty_seen    <= 1'b0;
 		end else if (!fifo_rd_ready || !packet_active_sync[1] || !fifo_empty) begin
@@ -301,8 +332,8 @@ module mipi_b2p_custom #(
 	// o_de must align with o_pixel: fifo_q is valid one cycle after rd_en.
 	// Delay o_de by one pixel clock to match.
 	reg o_de_r;
-	always @(posedge clk_pixel or negedge rst_n_pixel) begin
-		if (!rst_n_pixel)
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
+		if (!stream_rst_n_pixel)
 			o_de_r <= 1'b0;
 		else
 			o_de_r <= fifo_rd_ready && !fifo_empty;

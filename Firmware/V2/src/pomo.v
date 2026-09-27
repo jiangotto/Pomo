@@ -21,6 +21,8 @@ module pomo (
 	input  wire         vin_de,
 	input  wire [3:0]   vin_pixel,
 	input  wire         vin_stream_fault,
+	input  wire         mode_cmd_valid,
+	input  wire [3:0]   mode_cmd_value,
 	input  wire         fb_wr_full,
 	input  wire         fb_rd_empty,
 
@@ -33,6 +35,7 @@ module pomo (
 	output wire         bi_de,
 	input  wire         bi_den,
 	input  wire [15:0]  bi_data,
+	output reg  [3:0]   active_mode,
 
 	output wire         epd_gdclk,
 	output wire         epd_gdsp,
@@ -277,20 +280,39 @@ module pomo (
 
 	reg [1:0] init_state;
 	reg [9:0] clear_frame_cnt;
+	reg [3:0] requested_mode;
+
+	function is_display_mode;
+		input [3:0] mode;
+		begin
+			is_display_mode = (mode == 4'h8) || (mode == 4'hA) ||
+			                  (mode == 4'hB) || (mode == 4'hC);
+		end
+	endfunction
 
 	always @(posedge clk) begin
 		if (rst) begin
 			init_state      <= INIT_IDLE;
 			clear_frame_cnt <= 10'd0;
+			requested_mode  <= `EPD_DEFAULT_MODE;
+			active_mode     <= `EPD_DEFAULT_MODE;
 		end else begin
+			if (mode_cmd_valid && is_display_mode(mode_cmd_value))
+				requested_mode <= mode_cmd_value;
+
 			case (init_state)
 				INIT_IDLE: begin
-					if (sys_ready_clk && vin_vsync_rise)
+					if (sys_ready_clk && vin_vsync_rise) begin
+						active_mode <= requested_mode;
 						init_state <= INIT_CLEARING;
+					end
 				end
 				INIT_CLEARING: begin
 					if (vin_vsync_rise) begin
-						if (clear_frame_cnt == `CLEAR_FRAMES) begin
+						if (requested_mode != active_mode) begin
+							active_mode <= requested_mode;
+							clear_frame_cnt <= 10'd0;
+						end else if (clear_frame_cnt == `CLEAR_FRAMES) begin
 							init_state <= INIT_NORMAL;
 							clear_frame_cnt <= 10'd0;
 						end else begin
@@ -299,7 +321,11 @@ module pomo (
 					end
 				end
 				INIT_NORMAL: begin
-					;
+					if (vin_vsync_rise && (requested_mode != active_mode)) begin
+						active_mode <= requested_mode;
+						init_state <= INIT_CLEARING;
+						clear_frame_cnt <= 10'd0;
+					end
 				end
 			endcase
 		end
@@ -504,6 +530,7 @@ module pomo (
 
 	pixel_processing u_pixel_processing(
 		.sys_mode(sys_mode),
+		.active_mode(active_mode),
 		.proc_pixel(proc_pixel),
 		.proc_vin(s4_proc_vin),
 		.proc_bi(proc_bi),

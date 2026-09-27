@@ -29,6 +29,7 @@ module pixel_processing (
 	input  wire [15:0] proc_bi,               // Pixel state from framebuffer
 	input  wire [1:0]  proc_lut_rd,           // Waveform LUT readout
 	input  wire [1:0]  sys_mode,              // SYS_CLEAR / SYS_NORMAL(GC16) / SYS_AUTO_LUT
+	input  wire [3:0]  active_mode,           // Global runtime display mode
 	input  wire [5:0]  al_framecnt,           // Auto LUT global frame counter
 	input  wire [9:0]  clear_frame_cnt,
 	output reg  [15:0] proc_bo,               // Pixel state writeback to framebuffer
@@ -143,8 +144,9 @@ module pixel_processing (
 	// Bit 3-2: Reserved, keep at 0
 	// Bit 1-0: Previous frame pixel value
 
-	// Pixel processing
-	wire [3:0] pixel_mode = proc_bi[15:12];
+	// Pixel processing. The 12-bit framebuffer omits the global mode nibble,
+	// so use the runtime mode register directly instead of decoding a value
+	// that the unpacker has just reconstructed from the same register.
 	wire [1:0] pixel_stage = proc_bi[11:10];
 	wire [5:0] pixel_framecnt = proc_bi[9:4];
 	wire [3:0] pixel_prev = proc_bi[3:0];
@@ -154,47 +156,6 @@ module pixel_processing (
 	// Specific to fast mono mode
 	wire [5:0] pixel_framecnt_2w = FASTM_B2W_FRAMES - pixel_framecnt + 1;
 	wire [5:0] pixel_framecnt_2b = FASTM_W2B_FRAMES - pixel_framecnt + 1;
-
-	// Decode base mode and dither mode
-	localparam BASEMODE_FAST_MONO = 2'b01;
-	localparam BASEMODE_FAST_GREY = 2'b10;
-	localparam BASEMODE_AUTO_LUT = 2'b11;
-
-	localparam DITHER_NONE = 3'b000;
-	localparam DITHER_BN_1BIT = 3'b010;
-	localparam DITHER_BN_4BIT = 3'b011;
-
-	reg [1:0] pixel_basemode;
-	reg [2:0] pixel_dither;
-	always @(*) begin
-		case (pixel_mode)
-			MODE_FAST_MONO_NO_DITHER: begin
-				pixel_basemode = BASEMODE_FAST_MONO;
-				pixel_dither = DITHER_NONE;
-			end
-			MODE_FAST_MONO_BLUE_NOISE: begin
-				pixel_basemode = BASEMODE_FAST_MONO;
-				pixel_dither = DITHER_BN_1BIT;
-			end
-			MODE_FAST_GREY: begin
-				pixel_basemode = BASEMODE_FAST_GREY;
-				pixel_dither = DITHER_NONE;
-			end
-			MODE_AUTO_LUT_NO_DITHER: begin
-				pixel_basemode = BASEMODE_AUTO_LUT;
-				pixel_dither = DITHER_NONE;
-			end
-			MODE_AUTO_LUT_BLUE_NOISE: begin
-				pixel_basemode = BASEMODE_AUTO_LUT;
-				pixel_dither = DITHER_BN_4BIT;
-			end
-			default: begin
-				// Fallback, todo: report this as an error
-				pixel_basemode = BASEMODE_FAST_MONO;
-				pixel_dither = DITHER_NONE;
-			end
-		endcase
-	end
 
 	/* verilator lint_off UNUSEDSIGNAL */
 	// Only 4 MSBs used
@@ -217,8 +178,9 @@ module pixel_processing (
 		proc_output = `NO_DRIVE;
 		proc_bo     = proc_bi;
 
-		case (pixel_basemode)
-		BASEMODE_AUTO_LUT: begin
+		case (active_mode)
+		MODE_AUTO_LUT_NO_DITHER,
+		MODE_AUTO_LUT_BLUE_NOISE: begin
 			if (pixel_stage == STAGE_MONO) begin
 				if ((proc_vinnd[3] != pixel_prev[0]) && (pixel_mindrv == 2'd0)) begin
 					proc_output = drive_towards_input;
@@ -283,7 +245,8 @@ module pixel_processing (
 				end
 			end
 		end
-		BASEMODE_FAST_MONO: begin
+		MODE_FAST_MONO_NO_DITHER,
+		MODE_FAST_MONO_BLUE_NOISE: begin
 			if (pixel_framecnt != 0) begin
 				if ((proc_vin[3] != pixel_prev[0]) && (pixel_mindrv == 2'd0)) begin
 					proc_output = drive_towards_input;
@@ -309,7 +272,7 @@ module pixel_processing (
 				end
 			end
 		end
-		BASEMODE_FAST_GREY: begin
+		MODE_FAST_GREY: begin
 			if (pixel_stage == STAGE_MONO) begin
 				proc_output = drive_towards_input;
 				if ((proc_vin[3] != pixel_prev[1]) && (pixel_mindrv == 2'd0)) begin
@@ -381,6 +344,10 @@ module pixel_processing (
 				end
 			end
 		end
+		default: begin
+			proc_output = `NO_DRIVE;
+			proc_bo = proc_bi;
+		end
 		endcase
 
 		// CLEAR override - all modes -> white drive + init to selected mode
@@ -395,19 +362,18 @@ module pixel_processing (
 				proc_output = `DRIVE_WHITE;
 			else
 				proc_output = `NO_DRIVE;
-	`ifdef INIT_MODE_FAST_MONO
-			proc_bo = {MODE_FAST_MONO_NO_DITHER, 2'b0, 6'd0, 3'd0, 1'b1};
-	`elsif INIT_MODE_FAST_MONO_BN
-			proc_bo = {MODE_FAST_MONO_BLUE_NOISE, 2'b0, 6'd0, 3'd0, 1'b1};
-	`elsif INIT_MODE_FAST_GREY
-			proc_bo = {MODE_FAST_GREY, STAGE_DONE, 6'd0, 2'b0, 2'b11};
-	`elsif INIT_MODE_AUTO_LUT
-			proc_bo = {MODE_AUTO_LUT_NO_DITHER, STAGE_DONE, 6'd0, 4'hF};
-	`elsif INIT_MODE_AUTO_LUT_BN
-			proc_bo = {MODE_AUTO_LUT_BLUE_NOISE, STAGE_DONE, 6'd0, 4'hF};
-	`else
-			proc_bo = {MODE_FAST_MONO_NO_DITHER, 2'b0, 6'd0, 3'd0, 1'b1};
-	`endif
+			case (active_mode)
+			MODE_FAST_MONO_NO_DITHER,
+			MODE_FAST_MONO_BLUE_NOISE:
+				proc_bo = {active_mode, 2'b0, 6'd0, 3'd0, 1'b1};
+			MODE_FAST_GREY:
+				proc_bo = {active_mode, STAGE_DONE, 6'd0, 2'b0, 2'b11};
+			MODE_AUTO_LUT_NO_DITHER,
+			MODE_AUTO_LUT_BLUE_NOISE:
+				proc_bo = {active_mode, STAGE_DONE, 6'd0, 4'hF};
+			default:
+				proc_bo = {MODE_FAST_MONO_NO_DITHER, 2'b0, 6'd0, 3'd0, 1'b1};
+			endcase
 		end
 	end
 

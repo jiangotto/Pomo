@@ -35,8 +35,9 @@ V2 在一块电路板上集成了 FPGA、HyperRAM、墨水屏电源管理电路�
 ## V2 主要特性
 
 - 双通道 MIPI DSI RGB888 视频输入
+- 高云 MIPI 接收器使用双通道 1:16 模式
 - 实时测量 MIPI Byte Clock，并动态选择 PLL 输出分频系数
-- 使用 HyperRAM 保存当前和目标像素状态
+- 使用 HyperRAM 保存当前和目标像素状态，可选12位状态紧凑存储
 - 16位 EPD Source 数据总线，每个 SDCLK 装载8个2-bit驱动像素
 - 在 FPGA 内生成并口墨水屏 Source 和 Gate 扫描时序
 - 支持通过编译宏选择 SY7636A 或 TPS65185，V2 默认使用 SY7636A
@@ -45,6 +46,9 @@ V2 在一块电路板上集成了 FPGA、HyperRAM、墨水屏电源管理电路�
 - 支持蓝噪声抖动和多种波形/刷新模式
 - 检测 MIPI FIFO、帧缓存和整帧异常，并在故障帧中安全关闭 EPD 输出
 - 加宽水平时序计数器，支持1216 × 684等高分辨率面板
+- 通过 MIPI DSI 视频流内的通用短包在运行期间切换显示模式
+
+当前1216 × 684配置已实际验证到85 Hz。该结果依赖较短且走线良好的 FPC，以及正确调节的 D-PHY 输入延迟；它不代表任意主机、排线或 PCB 都一定能够达到85 Hz。
 
 ## 数据链路
 
@@ -96,10 +100,11 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 
 1. 使用高云 Gowin EDA V1.9.12 打开 [`Firmware/V2/Pomo.gprj`](Firmware/V2/Pomo.gprj)。
 2. 在 [`Firmware/V2/src/defines.vh`](Firmware/V2/src/defines.vh) 中配置 PMIC、面板时序、Source 位宽、波形模式和 VCOM 电压。
-3. 依次运行 **Synthesis → Place & Route → Generate Bitstream**。
-4. 通过 JTAG 排针烧录 FPGA。
+3. 确认两个生成的 MIPI IP 都使用双通道和相同的 **1:16** D-PHY 模式。仓库中的接收配置启用了 Byte/Lane Alignment，并将两个数据通道的输入延迟设为46；实际使用时应根据板卡和排线重新验证。
+4. 依次运行 **Synthesis → Place & Route → Generate Bitstream**，并确认 Setup 和 Hold 时序都通过。
+5. 通过 JTAG 排针烧录 FPGA。
 
-工程使用高云生成的 MIPI D-PHY 和异步 FIFO 模块。`impl/` 下的综合、布局布线和位流输出不会提交到版本库。
+工程使用高云生成的 MIPI D-PHY、协议解析、PLL、帧缓存和 FIFO 模块。`Firmware/V2/src` 下的 IP 配置及生成源码必须跟踪，因为在 GUI 中以不同设置重新生成 IP 会改变实际硬件行为。临时综合、仿真和实现输出不会提交到版本库。
 
 ## V2 固件配置
 
@@ -113,13 +118,47 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 | `EPD_TEST_PATTERN_MODE` | 选择内部静态或动态测试图案 |
 | `EPD_TEST_PATTERN_FPS` | 设置内部测试视频源的帧率 |
 | `EPD_PIXEL_REORDER` | 将逻辑 `2W × H` 视频转换成物理 `W × 2H` 面板排列 |
+| `EPD_DEFAULT_MODE` | 选择上电默认模式：`8` MONO、`A` MONO + 蓝噪声、`B` GREY、`C` AUTO LUT |
+| `EPD_STATE_12BIT` | 将4个12位像素状态紧凑存入3个16位 VFB 样本，相比每像素保存一个16位状态减少25%帧缓存流量 |
 | `DEFAULT_*` | 设置期望的 MIPI 有效区、同步和前后肩时序 |
 | `EPD_STV_TO_G1_CKV` | 设置从采样 STV 到 G1 选通前一次移位之间的面板 CKV 移位距离 |
 | `VCOM_VOL` | 设置面板 VCOM，单位为毫伏；必须根据面板规格书确认 |
 | `CLEAR_FRAMES` | 设置启动清屏序列最后一帧的零基序号 |
 | `LUT_FRAMES` | 设置波形 LUT 长度 |
 
-当前示例配置采用1216 × 684 MIPI 输入、16位 Source 输出、SY7636A、AUTO LUT 启动模式，并关闭像素重排；内部测试视频源帧率为85 Hz。这只是当前开发面板使用的示例，不是所有墨水屏都能直接使用的通用配置。
+当前示例配置采用1216 × 684 MIPI 输入、16位 Source 输出、12位帧缓存状态紧凑存储、SY7636A、MONO 启动模式，并关闭像素重排；内部测试视频源帧率为85 Hz。这只是当前开发面板使用的示例，不是所有墨水屏都能直接使用的通用配置。
+
+### MIPI 接收配置与信号完整性
+
+两个生成的 MIPI IP 必须使用相互匹配的设置：
+
+- **MIPI RX Advance：** 两个数据通道、1:16 D-PHY、启用 Byte Alignment 和 Lane Alignment。
+- **MIPI DSI/CSI-2 Receiver：** DSI 接口、两个 RX Lane、1:16 D-PHY、关闭 I/O Insertion。
+
+Lane 速率较高时，即使 RTL 和时序报告正确，采样眼图过窄仍可能表现为画面分裂、雪花或像素损坏。应尽量使用短 FPC，保证两条数据 Lane 匹配，并用可重复的测试图调节 `HS Data0/1 IO Delay Value`。当前值46只适用于已经测试的 Pomo/RK3506连接，不是墨水屏参数。当前 GW1NSR-4C 配置不能自动训练 IODELAY，因此更换主机、PCB 或排线后可能需要重新调节。
+
+当前双通道 RGB888 1:16链路的时钟关系为：
+
+```text
+Pixel Clock     = H_TOTAL × V_TOTAL × 刷新率
+1:16 Word Clock = Pixel Clock × 3 / 4
+D-PHY Clock     = Pixel Clock × 6
+```
+
+改变分辨率或最高刷新率时，除了修改 `defines.vh` 中的视频时序，还必须同步更新 `Firmware/V2/src/Pomo.sdc` 中相应的时钟约束。不能通过删除 HS、Byte、Pixel 或 HyperRAM 约束来隐藏时序失败。
+
+### 运行时切换显示模式
+
+无需重新编译 FPGA，即可通过 MIPI DSI **Generic Short Write, 2 parameters**（`DT = 0x23`）切换显示模式：
+
+| Payload | 模式 |
+|---|---|
+| `50 08` | MONO |
+| `50 0A` | MONO + 蓝噪声 |
+| `50 0B` | GREY |
+| `50 0C` | AUTO LUT |
+
+短包必须使用 HS 发送，同时 DSI 控制器始终保持 Video Mode。不要把 DesignWare DSI Host 的 `MODE_CFG` 临时切到 Command Mode 再切回来：该操作会让视频打包器从任意水平相位重新启动，从而导致画面偏移。Linux 内核面板或 Bridge 驱动通常应通过 `mipi_dsi_generic_write()` 发送。如果使用直接操作寄存器的诊断工具，它必须保持 `MODE_CFG`、`VID_MODE_CFG` 和视频时序不变，只通过通用命令 FIFO 插入 HS 短包。
 
 ### 确定 MIPI 扫描时序
 
