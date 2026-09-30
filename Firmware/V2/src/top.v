@@ -76,6 +76,7 @@ module top (
 	// PMIC control
 	// =========================================================================
 	wire pmic_ready;
+	wire mipi_power_request;
 	assign sys_ready = pmic_ready & init_done;
 
 	pmic_ctrl #(
@@ -83,6 +84,7 @@ module top (
 	) u_pmic_ctrl (
 		.clk           (sys_clk),
 		.rst_n         (sys_rst_n),
+		.power_on      (mipi_power_request),
 		.pmic_pwrup    (pmic_pwrup),
 		.pmic_sda      (pmic_sda),
 		.pmic_scl      (pmic_scl),
@@ -138,6 +140,7 @@ module top (
 		.v_ready     (mipi_ready),
 		.v_mode_cmd_valid(mipi_mode_cmd_valid),
 		.v_mode_cmd_value(mipi_mode_cmd_value),
+		.v_power_request(mipi_power_request),
 		.v_stream_fault(mipi_stream_fault),
 		.v_fifo_overflow_count(mipi_fifo_overflow_count),
 		.v_fifo_empty_count(mipi_fifo_empty_count)

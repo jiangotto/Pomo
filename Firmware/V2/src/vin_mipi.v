@@ -32,6 +32,7 @@ module vin_mipi (
 	output wire         v_ready,
 	output wire         v_mode_cmd_valid,
 	output wire [3:0]   v_mode_cmd_value,
+	output wire         v_power_request,
 	output wire         v_stream_fault,
 	output wire [15:0]  v_fifo_overflow_count,
 	output wire [15:0]  v_fifo_empty_count
@@ -81,15 +82,35 @@ module vin_mipi (
 		is_display_mode(o_wc[3:0]);
 	wire mode_cmd_packet = o_sp_en && ecc_ok && (o_dt == 6'h23) &&
 		(mode_cmd_low_first || mode_cmd_high_first);
+	wire power_cmd_low_first = (o_wc[7:0] == 8'h51) &&
+		((o_wc[15:8] == 8'h00) || (o_wc[15:8] == 8'h01));
+	wire power_cmd_high_first = (o_wc[15:8] == 8'h51) &&
+		((o_wc[7:0] == 8'h00) || (o_wc[7:0] == 8'h01));
+	wire power_cmd_packet = o_sp_en && ecc_ok && (o_dt == 6'h23) &&
+		(power_cmd_low_first || power_cmd_high_first);
+	reg power_request_byte;
 
 	always @(posedge clk_byte_out or negedge rst_n) begin
 		if (!rst_n) begin
 			mode_cmd_data_byte   <= 4'h0;
 			mode_cmd_toggle_byte <= 1'b0;
+			power_request_byte   <= 1'b1;
 		end else if (mode_cmd_packet) begin
 			mode_cmd_data_byte <= mode_cmd_low_first ? o_wc[11:8] : o_wc[3:0];
 			mode_cmd_toggle_byte <= ~mode_cmd_toggle_byte;
+		end else if (power_cmd_packet) begin
+			power_request_byte <= power_cmd_low_first ? o_wc[8] : o_wc[0];
 		end
+	end
+
+	// The PMIC controller runs from the stable 27 MHz clock. A power command is
+	// a retained level, so repeated ON/OFF commands are naturally idempotent.
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [1:0] power_request_sync;
+	always @(posedge clk or negedge rst_n) begin
+		if (!rst_n)
+			power_request_sync <= 2'b11;
+		else
+			power_request_sync <= {power_request_sync[0], power_request_byte};
 	end
 
 	// Runtime commands are inserted into the continuing video stream.  They
@@ -274,6 +295,10 @@ module vin_mipi (
 	wire [5:0] pixel_pll_odsel;
 	wire       pixel_pll_reset;
 	wire       pixel_pll_ready;
+	// The requested default is ON, but never energize the panel rails until
+	// the physical MIPI clock chain is valid. This leaves both supported PMICs
+	// in STANDBY at boot when no source is connected.
+	assign v_power_request = power_request_sync[1] && pixel_pll_ready;
 
 	mipi_pll_odiv_ctrl u_pixel_pll_ctrl (
 		.clk_ref   (clk),

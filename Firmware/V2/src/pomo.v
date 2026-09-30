@@ -153,6 +153,12 @@ module pomo (
 			vsync_just_hit   <= 1'b0;
 			scan_v_cnt       <= 11'd0;
 			al_framecnt      <= `LUT_FRAMES;
+		end else if (!sys_ready_clk) begin
+			frame_valid      <= 1'b0;
+			frame_first_line <= 1'b0;
+			vsync_just_hit   <= 1'b0;
+			scan_v_cnt       <= 11'd0;
+			al_framecnt      <= `LUT_FRAMES;
 		end else begin
 			vsync_just_hit <= vin_vsync_rise;
 
@@ -217,8 +223,8 @@ module pomo (
 		(scan_v_cnt == GATE_START_LINE);
 	assign scan_in_gate_blank = frame_valid &&
 		(scan_v_cnt >= GATE_START_LINE) && !scan_in_vact;
-	assign scan_in_hsync = vin_hsync;
-	assign scan_in_hact  = vin_de;
+	assign scan_in_hsync = frame_valid && vin_hsync;
+	assign scan_in_hact  = frame_valid && vin_de;
 	assign scan_in_act   = scan_in_vact && scan_in_hact;
 
 	reg after_hact;
@@ -230,8 +236,8 @@ module pomo (
 		else if (vin_hsync)      
 			after_hact <= 1'b0; 
 	end
-	wire scan_in_hbp = !vin_hsync && !vin_de && !after_hact;  
-	wire scan_in_hfp = !vin_hsync && !vin_de &&  after_hact; 
+	wire scan_in_hbp = frame_valid && !vin_hsync && !vin_de && !after_hact;
+	wire scan_in_hfp = frame_valid && !vin_hsync && !vin_de &&  after_hact;
 
 	// ============================================================
 	// Blue noise coordinates
@@ -300,7 +306,11 @@ module pomo (
 			if (mode_cmd_valid && is_display_mode(mode_cmd_value))
 				requested_mode <= mode_cmd_value;
 
-			case (init_state)
+			if (!sys_ready_clk) begin
+				// A PMIC power cycle always restarts the normal clear sequence.
+				init_state      <= INIT_IDLE;
+				clear_frame_cnt <= 10'd0;
+			end else case (init_state)
 				INIT_IDLE: begin
 					if (sys_ready_clk && vin_vsync_rise) begin
 						active_mode <= requested_mode;

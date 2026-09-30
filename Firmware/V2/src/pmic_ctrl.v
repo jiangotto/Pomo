@@ -12,6 +12,7 @@ module pmic_ctrl #(
 ) (
 	input  wire clk,                 // 27 MHz
 	input  wire rst_n,
+	input  wire power_on,            // retained runtime request, high after reset
 
 	output reg  pmic_pwrup,          // pin 21: TPS PWRUP / SY EN
 	inout  wire pmic_sda,
@@ -58,7 +59,9 @@ module pmic_ctrl #(
 				startup_cnt <= startup_cnt + 20'd1;
 			else
 				start <= 1'b1;
-			pmic_pwrup <= done_flag;
+			// Keep PWRUP low while programming the TPS65185. Once configured,
+			// power_on directly selects ACTIVE or STANDBY.
+			pmic_pwrup <= power_on && (wr_index >= 6'd12);
 `endif
 		end
 	end
@@ -135,7 +138,17 @@ module pmic_ctrl #(
 			6'd6:  begin reg_addr = TXR;    reg_data = pmic_config[config_cnt][15:8]; end
 			6'd7:  begin reg_addr = CR;     reg_data = WR_CR; end
 			6'd8:  begin reg_addr = SR;     reg_data = 8'h00; end
-			6'd9:  begin reg_addr = TXR;    reg_data = pmic_config[config_cnt][7:0]; end
+			6'd9:  begin
+				reg_addr = TXR;
+`ifdef PMIC_SY7636A
+				// Keep EN high in STANDBY. Clearing ON_OFF starts the PMIC's
+				// specified power-down and active-discharge sequence.
+				reg_data = ((config_cnt == LAST_CONFIG) && !power_on) ?
+					8'h40 : pmic_config[config_cnt][7:0];
+`else
+				reg_data = pmic_config[config_cnt][7:0];
+`endif
+			end
 			6'd10: begin reg_addr = CR;     reg_data = STP_WR_CR; end
 			6'd11: begin reg_addr = SR;     reg_data = 8'h00; end
 			default: begin reg_addr = 3'd0; reg_data = 8'h00; end
@@ -190,7 +203,7 @@ module pmic_ctrl #(
 								ready_cnt  <= 20'd0;
 							end else if (wr_index == 6'd11) begin
 								if (config_cnt == LAST_CONFIG) begin
-									wr_index  <= 6'd12;
+									wr_index  <= power_on ? 6'd12 : 6'd13;
 									ready_cnt <= 20'd0;
 								end else begin
 									config_cnt <= config_cnt + 3'd1;
@@ -206,14 +219,37 @@ module pmic_ctrl #(
 					end
 				endcase
 			end else if (wr_index == 6'd12) begin
+				if (!power_on) begin
+					done_flag <= 1'b0;
+					ready_cnt <= 20'd0;
 `ifdef PMIC_SY7636A
-				if (ready_cnt < READY_CYCLES)
-					ready_cnt <= ready_cnt + 20'd1;
-				else
-					done_flag <= 1'b1;
+					// Rewrite only OPERATION_MODE (0x00) with ON_OFF cleared.
+					config_cnt <= LAST_CONFIG;
+					wr_index   <= 6'd3;
+					wr_reg     <= 2'd0;
 `else
-				done_flag <= 1'b1;
+					wr_index <= 6'd13;
 `endif
+				end else if (ready_cnt < READY_CYCLES) begin
+					ready_cnt <= ready_cnt + 20'd1;
+				end else begin
+					done_flag <= 1'b1;
+				end
+			end else if (wr_index == 6'd13) begin
+				// OFF means STANDBY for both supported PMICs. Their control
+				// interfaces stay alive so the same command path can power up.
+				done_flag <= 1'b0;
+				if (power_on) begin
+					ready_cnt <= 20'd0;
+`ifdef PMIC_SY7636A
+					// Rewrite OPERATION_MODE with ON_OFF set; no full reconfigure.
+					config_cnt <= LAST_CONFIG;
+					wr_index   <= 6'd3;
+					wr_reg     <= 2'd0;
+`else
+					wr_index <= 6'd12;
+`endif
+				end
 			end
 		end
 	end
