@@ -44,9 +44,10 @@ The MIPI input has been tested with Luckfox and Waveshare development boards. De
 - Optional `2W × H` to `W × 2H` pixel reorder for ET073TC1-style panel mappings
 - Built-in static and animated test patterns that can replace the MIPI source
 - Blue-noise dithering and multiple waveform/update modes
-- FIFO, framebuffer and frame-level fault detection with safe EPD output suppression
+- FIFO, framebuffer and frame-level diagnostic counters
 - Wider horizontal timing counters for high-resolution panels such as 1216 × 684
 - Runtime display-mode switching through an in-stream MIPI DSI generic short packet
+- Runtime PMIC power control with fail-safe EPD output clamping on MIPI PLL loss
 
 The current 1216 × 684 configuration has been tested at up to 85 Hz. This result depends on a short, well-routed FPC connection and correctly tuned D-PHY input delay; it is not a guaranteed limit for every host, cable, or PCB.
 
@@ -165,9 +166,9 @@ D-PHY clock     = pixel clock × 6
 
 When changing resolution or maximum refresh rate, update the corresponding clock constraints in `Firmware/V2/src/Pomo.sdc` as well as the video timing in `defines.vh`. Do not hide failures by removing the HS, byte, pixel, or HyperRAM constraints.
 
-### Runtime display-mode switching
+### Runtime display and power control
 
-The display mode can be changed without rebuilding the FPGA by sending a MIPI DSI **Generic Short Write, 2 parameters** packet (`DT = 0x23`):
+The display mode and panel power request can be changed without rebuilding the FPGA by sending a MIPI DSI **Generic Short Write, 2 parameters** packet (`DT = 0x23`):
 
 | Payload | Mode |
 |---|---|
@@ -175,8 +176,15 @@ The display mode can be changed without rebuilding the FPGA by sending a MIPI DS
 | `50 0A` | MONO + blue noise |
 | `50 0B` | GREY |
 | `50 0C` | AUTO LUT |
+| `51 00` | Clamp the EPD interface and place the PMIC in standby |
+| `51 01` | Request panel power-on; the normal initialization clear runs again |
+| `52 A5` | Restart the initialization clear without cycling panel power, then return to the requested display mode |
 
-Send this packet in HS while the controller remains in video mode. Do **not** switch the DesignWare DSI host's `MODE_CFG` to command mode and back: doing so restarts the video packetizer at an arbitrary horizontal phase and can shift the image. A Linux kernel panel/bridge driver should normally issue the packet through `mipi_dsi_generic_write()`. If a diagnostic register-level tool is used, it must leave `MODE_CFG`, `VID_MODE_CFG`, and the running video timing unchanged and only enqueue the HS short packet through the generic-command FIFO.
+Send these packets in HS while the controller remains in video mode. Do **not** switch the DesignWare DSI host's `MODE_CFG` to command mode and back: doing so restarts the video packetizer at an arbitrary horizontal phase and can shift the image. A Linux kernel panel/bridge driver should normally issue the packet through `mipi_dsi_generic_write()`. If a diagnostic register-level tool is used, it must leave `MODE_CFG`, `VID_MODE_CFG`, and the running video timing unchanged and only enqueue the HS short packet through the generic-command FIFO.
+
+The power request defaults to ON, but in the normal MIPI build the physical panel rails remain off until the dynamically configured pixel PLL is ready and locked. `51 00` first clamps the complete EPD interface to its inactive levels, then places the selected PMIC in standby. For SY7636A this clears `ON_OFF` while keeping `EN` high so I2C remains available; for TPS65185 it lowers `PWRUP`. After `51 01`, Pomo waits for the PMIC and HyperRAM, returns to `INIT_IDLE`, and performs `INIT_CLEARING` before normal updates resume. `EPD_INTERNAL_TEST` does not require a MIPI lock and powers the PMIC from the internal test path.
+
+`52 A5` leaves the PMIC and MIPI receiver running. It returns the panel state machine to `INIT_IDLE`, starts `INIT_CLEARING` on the next clean frame boundary, and preserves the currently requested display mode. The fixed `A5` key reduces the chance that an unrelated short packet accidentally requests a full clear.
 
 ### Determining the MIPI scan timing
 
@@ -250,7 +258,17 @@ Define `EPD_INTERNAL_TEST` to test a panel without a running MIPI source. The ge
 
 ### Panel safety
 
-Parallel-interface EPD panels require the correct waveform LUT, VCOM setting, supply sequence, and output-enable behavior. A mismatched resolution or malformed input stream can otherwise clock unintended data into areas outside the valid image. V2 detects MIPI FIFO overflow and framebuffer faults and suppresses source/gate activity for the affected frame, but this protection does not replace validation against the panel datasheet.
+Parallel-interface EPD panels require the correct waveform LUT, VCOM setting, supply sequence, and output-enable behavior. A mismatched resolution or malformed input stream can otherwise clock unintended data into areas outside the valid image. FIFO, framebuffer, and frame fault signals are diagnostics; they do not by themselves make an arbitrary malformed stream safe.
+
+The MIPI-derived pixel clock can stop without giving a synchronous scan state machine another edge. Pomo therefore clamps the physical interface through a single clock-independent output gate when the raw pixel-PLL `LOCK` is lost, a power-off command is received, or the PMIC/HyperRAM is not ready:
+
+```text
+GDCLK=0, GDSP=1, SDCLK=0, SDLE=0, SDCE=1, DATA=0
+```
+
+Only after the clamp is active does the PMIC enter standby and discharge its rails. On recovery the clamp remains active until the supplies and memory are ready; the video-domain reset then causes the next valid frame to start from the initialization clear sequence.
+
+**Do not validate sudden MIPI removal on a valuable panel first.** With the panel disconnected, use an oscilloscope to verify that the specific generated bitstream drives all six groups above to their safe levels immediately when the MIPI clock is removed, and that this happens before `VPOS`, `VNEG`, and `VCOM` discharge. The protection depends on the Gowin PLL actually deasserting `LOCK` when its input clock disappears. If a host keeps the DSI clock lane running while it stops video packets, PLL-loss protection cannot detect that condition; send `51 00` before intentionally stopping such a source.
 
 ## Repository layout
 

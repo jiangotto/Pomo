@@ -32,6 +32,7 @@ module vin_mipi (
 	output wire         v_ready,
 	output wire         v_mode_cmd_valid,
 	output wire [3:0]   v_mode_cmd_value,
+	output wire         v_reinit_cmd_valid,
 	output wire         v_power_request,
 	output wire         v_stream_fault,
 	output wire [15:0]  v_fifo_overflow_count,
@@ -60,58 +61,6 @@ module vin_mipi (
 	wire [31:0] o_payload;
 	wire [3:0]  o_payload_dv;
 	wire        ecc_ok;
-
-	// Runtime display-mode command: DSI Generic Short Write with two
-	// parameters (DT 0x23), carrying 0x50 and a mode byte whose low nibble is
-	// 8/A/B/C. Mode D remains implemented downstream but is intentionally not
-	// selectable for now. Accept both parameter byte orders because receiver
-	// revisions have exposed the short-packet data word in both conventions.
-	function is_display_mode;
-		input [3:0] mode;
-		begin
-			is_display_mode = (mode == 4'h8) || (mode == 4'hA) ||
-			                  (mode == 4'hB) || (mode == 4'hC);
-		end
-	endfunction
-
-	reg [3:0] mode_cmd_data_byte;
-	reg       mode_cmd_toggle_byte;
-	wire mode_cmd_low_first = (o_wc[7:0] == 8'h50) &&
-		is_display_mode(o_wc[11:8]);
-	wire mode_cmd_high_first = (o_wc[15:8] == 8'h50) &&
-		is_display_mode(o_wc[3:0]);
-	wire mode_cmd_packet = o_sp_en && ecc_ok && (o_dt == 6'h23) &&
-		(mode_cmd_low_first || mode_cmd_high_first);
-	wire power_cmd_low_first = (o_wc[7:0] == 8'h51) &&
-		((o_wc[15:8] == 8'h00) || (o_wc[15:8] == 8'h01));
-	wire power_cmd_high_first = (o_wc[15:8] == 8'h51) &&
-		((o_wc[7:0] == 8'h00) || (o_wc[7:0] == 8'h01));
-	wire power_cmd_packet = o_sp_en && ecc_ok && (o_dt == 6'h23) &&
-		(power_cmd_low_first || power_cmd_high_first);
-	reg power_request_byte;
-
-	always @(posedge clk_byte_out or negedge rst_n) begin
-		if (!rst_n) begin
-			mode_cmd_data_byte   <= 4'h0;
-			mode_cmd_toggle_byte <= 1'b0;
-			power_request_byte   <= 1'b1;
-		end else if (mode_cmd_packet) begin
-			mode_cmd_data_byte <= mode_cmd_low_first ? o_wc[11:8] : o_wc[3:0];
-			mode_cmd_toggle_byte <= ~mode_cmd_toggle_byte;
-		end else if (power_cmd_packet) begin
-			power_request_byte <= power_cmd_low_first ? o_wc[8] : o_wc[0];
-		end
-	end
-
-	// The PMIC controller runs from the stable 27 MHz clock. A power command is
-	// a retained level, so repeated ON/OFF commands are naturally idempotent.
-	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [1:0] power_request_sync;
-	always @(posedge clk or negedge rst_n) begin
-		if (!rst_n)
-			power_request_sync <= 2'b11;
-		else
-			power_request_sync <= {power_request_sync[0], power_request_byte};
-	end
 
 	// Runtime commands are inserted into the continuing video stream.  They
 	// must not reset the receiver: doing so resets the destination side of the
@@ -298,7 +247,8 @@ module vin_mipi (
 	// The requested default is ON, but never energize the panel rails until
 	// the physical MIPI clock chain is valid. This leaves both supported PMICs
 	// in STANDBY at boot when no source is connected.
-	assign v_power_request = power_request_sync[1] && pixel_pll_ready;
+	wire tcon_power_request;
+	assign v_power_request = tcon_power_request && pixel_pll_ready && lock;
 
 	mipi_pll_odiv_ctrl u_pixel_pll_ctrl (
 		.clk_ref   (clk),
@@ -351,38 +301,23 @@ module vin_mipi (
 	wire rst_n_pixel_sync = pixel_reset_sync[2];
 	assign v_ready = rst_n_pixel_sync;
 
-	// Toggle-based bundled-data CDC. mode_cmd_data_byte remains stable until
-	// the next command, giving it multiple pixel clocks to settle before the
-	// synchronized toggle emits a one-cycle command pulse.
-	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] mode_toggle_sync;
-	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [3:0] mode_data_sync_0;
-	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [3:0] mode_data_sync_1;
-	reg       mode_toggle_seen;
-	reg       mode_cmd_valid_pixel;
-	reg [3:0] mode_cmd_value_pixel;
-
-	always @(posedge clk_pixel_out or negedge rst_n_pixel_sync) begin
-		if (!rst_n_pixel_sync) begin
-			mode_toggle_sync     <= 3'b000;
-			mode_data_sync_0     <= 4'h0;
-			mode_data_sync_1     <= 4'h0;
-			mode_toggle_seen     <= 1'b0;
-			mode_cmd_valid_pixel <= 1'b0;
-			mode_cmd_value_pixel <= 4'h0;
-		end else begin
-			mode_toggle_sync <= {mode_toggle_sync[1:0], mode_cmd_toggle_byte};
-			mode_data_sync_0 <= mode_cmd_data_byte;
-			mode_data_sync_1 <= mode_data_sync_0;
-			mode_cmd_valid_pixel <= (mode_toggle_sync[2] != mode_toggle_seen);
-			if (mode_toggle_sync[2] != mode_toggle_seen) begin
-				mode_toggle_seen <= mode_toggle_sync[2];
-				mode_cmd_value_pixel <= mode_data_sync_1;
-			end
-		end
-	end
-
-	assign v_mode_cmd_valid = mode_cmd_valid_pixel;
-	assign v_mode_cmd_value = mode_cmd_value_pixel;
+	// Runtime TCON register bank. vin_mipi only supplies validated protocol
+	// fields; register meanings and clock-domain transfers live in one place.
+	tcon_regs u_tcon_regs (
+		.rst_n         (rst_n),
+		.sys_clk       (clk),
+		.byte_clk      (clk_byte_out),
+		.pixel_clk     (clk_pixel_out),
+		.pixel_rst_n   (rst_n_pixel_sync),
+		.sp_en         (o_sp_en),
+		.ecc_ok        (ecc_ok),
+		.dt            (o_dt),
+		.wc            (o_wc),
+		.mode_write    (v_mode_cmd_valid),
+		.mode_value    (v_mode_cmd_value),
+		.panel_power   (tcon_power_request),
+		.reinit_request(v_reinit_cmd_valid)
+	);
 
 	// =========================================================================
 	// Byte stream -> 1-pixel RGB888 stream

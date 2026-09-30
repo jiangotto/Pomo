@@ -34,6 +34,7 @@
         <File path="src/pmic_ctrl.v" type="file.verilog" enable="1"/>
         <File path="src/pomo.v" type="file.verilog" enable="1"/>
         <File path="src/rgb888_to_y4.v" type="file.verilog" enable="1"/>
+        <File path="src/tcon_regs.v" type="file.verilog" enable="1"/>
         <File path="src/top.v" type="file.verilog" enable="1"/>
         <File path="src/video_frame_buffer/video_frame_buffer.v" type="file.verilog" enable="1"/>
         <File path="src/vin_mipi.v" type="file.verilog" enable="1"/>

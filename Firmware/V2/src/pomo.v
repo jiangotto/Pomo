@@ -23,6 +23,7 @@ module pomo (
 	input  wire         vin_stream_fault,
 	input  wire         mode_cmd_valid,
 	input  wire [3:0]   mode_cmd_value,
+	input  wire         reinit_cmd_valid,
 	input  wire         fb_wr_full,
 	input  wire         fb_rd_empty,
 
@@ -308,6 +309,11 @@ module pomo (
 
 			if (!sys_ready_clk) begin
 				// A PMIC power cycle always restarts the normal clear sequence.
+				init_state      <= INIT_IDLE;
+				clear_frame_cnt <= 10'd0;
+			end else if (reinit_cmd_valid) begin
+				// Preserve requested_mode, but restart the complete initialization
+				// clear at the next clean input-frame boundary.
 				init_state      <= INIT_IDLE;
 				clear_frame_cnt <= 10'd0;
 			end else case (init_state)

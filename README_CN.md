@@ -44,9 +44,10 @@ V2 在一块电路板上集成了 FPGA、HyperRAM、墨水屏电源管理电路�
 - 支持 ET073TC1 一类面板所需的 `2W × H` 到 `W × 2H` 像素重排
 - 内置静态和动态测试画面，可以替代外部 MIPI 视频源
 - 支持蓝噪声抖动和多种波形/刷新模式
-- 检测 MIPI FIFO、帧缓存和整帧异常，并在故障帧中安全关闭 EPD 输出
+- 提供 MIPI FIFO、帧缓存和整帧异常诊断计数
 - 加宽水平时序计数器，支持1216 × 684等高分辨率面板
 - 通过 MIPI DSI 视频流内的通用短包在运行期间切换显示模式
+- 支持运行时控制 PMIC，并在 MIPI PLL 失锁时对 EPD 输出进行安全钳位
 
 当前1216 × 684配置已实际验证到85 Hz。该结果依赖较短且走线良好的 FPC，以及正确调节的 D-PHY 输入延迟；它不代表任意主机、排线或 PCB 都一定能够达到85 Hz。
 
@@ -165,9 +166,9 @@ D-PHY Clock     = Pixel Clock × 6
 
 改变分辨率或最高刷新率时，除了修改 `defines.vh` 中的视频时序，还必须同步更新 `Firmware/V2/src/Pomo.sdc` 中相应的时钟约束。不能通过删除 HS、Byte、Pixel 或 HyperRAM 约束来隐藏时序失败。
 
-### 运行时切换显示模式
+### 运行时显示与电源控制
 
-无需重新编译 FPGA，即可通过 MIPI DSI **Generic Short Write, 2 parameters**（`DT = 0x23`）切换显示模式：
+无需重新编译 FPGA，即可通过 MIPI DSI **Generic Short Write, 2 parameters**（`DT = 0x23`）切换显示模式或控制面板电源请求：
 
 | Payload | 模式 |
 |---|---|
@@ -175,8 +176,15 @@ D-PHY Clock     = Pixel Clock × 6
 | `50 0A` | MONO + 蓝噪声 |
 | `50 0B` | GREY |
 | `50 0C` | AUTO LUT |
+| `51 00` | 钳位 EPD 接口并让 PMIC进入待机 |
+| `51 01` | 请求面板重新上电，并重新执行初始化清屏 |
+| `52 A5` | 不切断面板电源，重新执行初始化清屏，完成后返回当前请求的显示模式 |
 
-短包必须使用 HS 发送，同时 DSI 控制器始终保持 Video Mode。不要把 DesignWare DSI Host 的 `MODE_CFG` 临时切到 Command Mode 再切回来：该操作会让视频打包器从任意水平相位重新启动，从而导致画面偏移。Linux 内核面板或 Bridge 驱动通常应通过 `mipi_dsi_generic_write()` 发送。如果使用直接操作寄存器的诊断工具，它必须保持 `MODE_CFG`、`VID_MODE_CFG` 和视频时序不变，只通过通用命令 FIFO 插入 HS 短包。
+这些短包必须使用 HS 发送，同时 DSI 控制器始终保持 Video Mode。不要把 DesignWare DSI Host 的 `MODE_CFG` 临时切到 Command Mode 再切回来：该操作会让视频打包器从任意水平相位重新启动，从而导致画面偏移。Linux 内核面板或 Bridge 驱动通常应通过 `mipi_dsi_generic_write()` 发送。如果使用直接操作寄存器的诊断工具，它必须保持 `MODE_CFG`、`VID_MODE_CFG` 和视频时序不变，只通过通用命令 FIFO 插入 HS 短包。
+
+开机请求默认为开启，但正常 MIPI 固件只有在动态像素 PLL 已经 ready 且保持 lock 后才真正开启面板高压。收到 `51 00` 后，固件先把整套 EPD 接口钳位到无效电平，再让所选 PMIC进入待机：SY7636A 清除 `ON_OFF` 并保持 `EN` 为高，以便继续使用 I2C；TPS65185 则拉低 `PWRUP`。收到 `51 01` 后，Pomo 等待 PMIC 和 HyperRAM 稳定，回到 `INIT_IDLE`，并重新执行 `INIT_CLEARING` 后才恢复正常刷新。`EPD_INTERNAL_TEST` 不依赖 MIPI lock，PMIC由内部测试路径直接请求上电。
+
+`52 A5` 不会关闭 PMIC，也不会复位 MIPI 接收器。它会让面板状态机回到 `INIT_IDLE`，在下一个完整帧边界开始 `INIT_CLEARING`，同时保留当前请求的显示模式。固定使用 `A5` 作为确认值，可降低其他短包被误识别为全屏清除命令的概率。
 
 ### 确定 MIPI 扫描时序
 
@@ -250,7 +258,17 @@ physical(x, 2y + 1) = logical(2x + 1, y)
 
 ### 面板安全
 
-驱动并口墨水屏必须使用正确的波形 LUT、VCOM、电源时序和输出使能逻辑。分辨率不匹配或异常的视频流可能将错误数据移入有效区域之外的 Source 驱动。V2 会检测 MIPI FIFO 溢出和帧缓存异常，并在故障帧中关闭 Source/Gate 活动，但这些保护不能替代对面板规格书和驱动时序的核对。
+驱动并口墨水屏必须使用正确的波形 LUT、VCOM、电源时序和输出使能逻辑。分辨率不匹配或异常的视频流可能将错误数据移入有效区域之外的 Source 驱动。MIPI FIFO、帧缓存和整帧故障信号目前用于诊断，不能单独保证任意异常输入都是安全的。
+
+来自 MIPI 的像素时钟可能突然停止，使同步扫描状态机没有机会执行下一个时钟沿。因此，当原始像素 PLL `LOCK` 丢失、收到关机指令，或者 PMIC/HyperRAM 尚未 ready 时，Pomo 会通过一个不依赖像素时钟的统一输出门立即把物理接口钳位为：
+
+```text
+GDCLK=0, GDSP=1, SDCLK=0, SDLE=0, SDCE=1, DATA=0
+```
+
+只有钳位生效后，PMIC才进入待机并对高压电源轨放电。恢复时钳位会一直保持，直到电源和存储器稳定；随后视频域复位保证下一帧从初始化清屏流程重新开始。
+
+**不要首先使用有价值的屏幕验证 MIPI 突然断开。** 应在不连接屏幕的情况下使用示波器，确认当前生成的位流在 MIPI 时钟消失时立即将上述六组信号置为安全电平，并且发生在 `VPOS`、`VNEG` 和 `VCOM` 开始放电之前。该保护依赖高云 PLL 在输入时钟消失时确实撤销 `LOCK`。如果主机停止视频数据包但仍保持 DSI Clock Lane运行，PLL失锁保护无法识别这种情况；计划停止这类视频源前应先发送 `51 00`。
 
 ## 仓库结构
 

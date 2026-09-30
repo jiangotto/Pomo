@@ -77,6 +77,12 @@ module top (
 	// =========================================================================
 	wire pmic_ready;
 	wire mipi_power_request;
+	wire panel_power_request;
+	`ifdef EPD_INTERNAL_TEST
+	assign panel_power_request = 1'b1;
+	`else
+	assign panel_power_request = mipi_power_request;
+	`endif
 	assign sys_ready = pmic_ready & init_done;
 
 	pmic_ctrl #(
@@ -84,7 +90,7 @@ module top (
 	) u_pmic_ctrl (
 		.clk           (sys_clk),
 		.rst_n         (sys_rst_n),
-		.power_on      (mipi_power_request),
+		.power_on      (panel_power_request),
 		.pmic_pwrup    (pmic_pwrup),
 		.pmic_sda      (pmic_sda),
 		.pmic_scl      (pmic_scl),
@@ -113,6 +119,7 @@ module top (
 	wire        mipi_ready;
 	wire        mipi_mode_cmd_valid;
 	wire [3:0]  mipi_mode_cmd_value;
+	wire        mipi_reinit_cmd_valid;
 	wire [3:0]  active_mode;
 	(* syn_keep = 1 *) wire        mipi_stream_fault;
 	(* syn_keep = 1 *) wire [15:0] mipi_fifo_overflow_count;
@@ -140,6 +147,7 @@ module top (
 		.v_ready     (mipi_ready),
 		.v_mode_cmd_valid(mipi_mode_cmd_valid),
 		.v_mode_cmd_value(mipi_mode_cmd_value),
+		.v_reinit_cmd_valid(mipi_reinit_cmd_valid),
 		.v_power_request(mipi_power_request),
 		.v_stream_fault(mipi_stream_fault),
 		.v_fifo_overflow_count(mipi_fifo_overflow_count),
@@ -151,6 +159,7 @@ module top (
 	wire selected_stream_fault = 1'b0;
 	wire selected_mode_cmd_valid = 1'b0;
 	wire [3:0] selected_mode_cmd_value = 4'h0;
+	wire selected_reinit_cmd_valid = 1'b0;
 	wire [31:0] test_frame_count;
 
 	internal_video_gen #(
@@ -182,6 +191,7 @@ module top (
 	wire selected_stream_fault = mipi_stream_fault;
 	wire selected_mode_cmd_valid = mipi_mode_cmd_valid;
 	wire [3:0] selected_mode_cmd_value = mipi_mode_cmd_value;
+	wire selected_reinit_cmd_valid = mipi_reinit_cmd_valid;
 	assign source_pclk  = mipi_pclk;
 	assign source_vsync = mipi_vsync;
 	assign source_hsync = mipi_hsync;
@@ -223,6 +233,22 @@ module top (
 	// =========================================================================
 	// Pomo
 	// =========================================================================
+	// The video clock can disappear without another edge. Clamp the physical
+	// panel interface combinationally before starting the PMIC power-down; this
+	// safety path therefore does not depend on the MIPI-derived pixel clock.
+	wire        epd_gdclk_raw;
+	wire        epd_gdsp_raw;
+	wire        epd_sdclk_raw;
+	wire        epd_sdle_raw;
+	wire        epd_sdce_raw;
+	wire [15:0] epd_data_raw;
+	wire        panel_output_enable = sys_ready & panel_power_request;
+	localparam [20:0] EPD_OUTPUT_SAFE = {1'b0, 1'b1, 1'b0, 1'b0, 1'b1, 16'b0};
+
+	assign {epd_gdclk, epd_gdsp, epd_sdclk, epd_sdle, epd_sdce, epd_data} =
+		panel_output_enable ?
+		{epd_gdclk_raw, epd_gdsp_raw, epd_sdclk_raw,
+		 epd_sdle_raw, epd_sdce_raw, epd_data_raw} : EPD_OUTPUT_SAFE;
 
 	pomo u_pomo (
 		.clk        (vin_pclk),
@@ -235,6 +261,7 @@ module top (
 		.vin_stream_fault(selected_stream_fault),
 		.mode_cmd_valid(selected_mode_cmd_valid),
 		.mode_cmd_value(selected_mode_cmd_value),
+		.reinit_cmd_valid(selected_reinit_cmd_valid),
 		.fb_wr_full (fb_vin_fifo_full),
 		.fb_rd_empty(fb_vout_fifo_empty),
 		.bo_clk     (bo_clk),
@@ -247,12 +274,12 @@ module top (
 		.bi_den     (bi_den),
 		.bi_data    (bi_data),
 		.active_mode(active_mode),
-		.epd_gdclk  (epd_gdclk),
-		.epd_gdsp   (epd_gdsp),
-		.epd_sdclk  (epd_sdclk),
-		.epd_sdle   (epd_sdle),
-		.epd_data   (epd_data),
-		.epd_sdce   (epd_sdce)
+		.epd_gdclk  (epd_gdclk_raw),
+		.epd_gdsp   (epd_gdsp_raw),
+		.epd_sdclk  (epd_sdclk_raw),
+		.epd_sdle   (epd_sdle_raw),
+		.epd_data   (epd_data_raw),
+		.epd_sdce   (epd_sdce_raw)
 	);
 
 `ifdef EPD_STATE_12BIT
