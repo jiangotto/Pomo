@@ -22,6 +22,10 @@ module vin_mipi (
 	inout  wire         mipi_lane0_n,
 	inout  wire         mipi_lane1_p,
 	inout  wire         mipi_lane1_n,
+	inout  wire         mipi_lane2_p,
+	inout  wire         mipi_lane2_n,
+	inout  wire         mipi_lane3_p,
+	inout  wire         mipi_lane3_n,
 
 	// Video output: 1 pixel per beat, Y4
 	output wire         v_pclk,
@@ -46,10 +50,22 @@ module vin_mipi (
 	wire [1:0] lp_data0_out;
 	wire [1:0] lp_data1_out;
 	wire       clk_byte_out;
-	wire [15:0] data_out0;
-	wire [15:0] data_out1;
 	wire       ready;
+	wire       receiver_trained;
+	wire       receiver_train_failed;
+	wire [3:0] mipi_data_p_all = {
+		mipi_lane3_p, mipi_lane2_p, mipi_lane1_p, mipi_lane0_p};
+	wire [3:0] mipi_data_n_all = {
+		mipi_lane3_n, mipi_lane2_n, mipi_lane1_n, mipi_lane0_n};
+	wire [`MIPI_RX_LANES-1:0] mipi_data_p_bus =
+		mipi_data_p_all[`MIPI_RX_LANES-1:0];
+	wire [`MIPI_RX_LANES-1:0] mipi_data_n_bus =
+		mipi_data_n_all[`MIPI_RX_LANES-1:0];
+	wire [`MIPI_RX_LANES*2-1:0] lp_data_out_bus;
+	wire [`MIPI_RX_LANES*16-1:0] dphy_data_bus;
 
+	assign lp_data0_out = lp_data_out_bus[1:0];
+	assign lp_data1_out = lp_data_out_bus[3:2];
 	reg        hs_en_reg;
 	reg [3:0]  hs_tail_cnt;
 
@@ -58,9 +74,11 @@ module vin_mipi (
 	wire        o_lp_av_en;
 	wire [5:0]  o_dt;
 	wire [15:0] o_wc;
-	wire [31:0] o_payload;
-	wire [3:0]  o_payload_dv;
+	wire [`MIPI_RX_LANES*16-1:0] o_payload;
+	wire [`MIPI_RX_LANES*2-1:0]  o_payload_dv;
 	wire        ecc_ok;
+	wire        long_packet_done;
+	wire        payload_crc_ok;
 
 	// Runtime commands are inserted into the continuing video stream.  They
 	// must not reset the receiver: doing so resets the destination side of the
@@ -79,33 +97,84 @@ module vin_mipi (
 	// =========================================================================
 	// MIPI PHY
 	// =========================================================================
-	MIPI_RX_Advance_Top u_mipi_rx_ip(
+	mipi_dphy_rx_custom #(
+		.LANES    (`MIPI_RX_LANES),
+		.AUTO_TRAIN(`MIPI_RX_AUTO_TRAIN),
+		.IO_DELAY0(`MIPI_RX_IO_DELAY0),
+		.IO_DELAY1(`MIPI_RX_IO_DELAY1),
+		.IO_DELAY2(`MIPI_RX_IO_DELAY2),
+		.IO_DELAY3(`MIPI_RX_IO_DELAY3)
+	) u_mipi_rx_custom (
 		.reset_n     (rx_stream_rst_n),
-		.MIPI_CLK_P  (mipi_clk_p),
-		.MIPI_CLK_N  (mipi_clk_n),
+		.mipi_clk_p  (mipi_clk_p),
+		.mipi_clk_n  (mipi_clk_n),
+		.mipi_data_p (mipi_data_p_bus),
+		.mipi_data_n (mipi_data_n_bus),
 		.lp_clk_out  (lp_clk_out),
-		.lp_clk_in   (),
+		.lp_clk_in   (2'b00),
 		.lp_clk_dir  (1'b0),
-		.clk_byte_out(clk_byte_out),
-		.MIPI_LANE1_P(mipi_lane1_p),
-		.MIPI_LANE1_N(mipi_lane1_n),
-		.data_out1   (data_out1),
-		.lp_data1_out(lp_data1_out),
-		.lp_data1_in (),
-		.lp_data1_dir(1'b0),
-		.MIPI_LANE0_P(mipi_lane0_p),
-		.MIPI_LANE0_N(mipi_lane0_n),
-		.data_out0   (data_out0),
-		.lp_data0_out(lp_data0_out),
-		.lp_data0_in (),
-		.lp_data0_dir(1'b0),
+		.lp_data_out (lp_data_out_bus),
+		.lp_data_in  ({(`MIPI_RX_LANES*2){1'b0}}),
+		.lp_data_dir ({`MIPI_RX_LANES{1'b0}}),
+		.clk_word    (clk_byte_out),
+		.data_out    (dphy_data_bus),
 		.hs_en       (hs_en_reg),
 		.clk_term_en (1'b1),
 		.data_term_en(hs_en_reg),
-		.ready       (ready)
+		.train_packet_done(long_packet_done),
+		.train_packet_good(long_packet_done && payload_crc_ok),
+		.ready       (ready),
+		.trained     (receiver_trained),
+		.train_failed(receiver_train_failed)
 	);
 
-	// The generated receiver uses MIPI IO, so the HS input and termination
+	// Gowin only accepts IO_TYPE=MIPI on a pin backed by a MIPI primitive.
+	// Keep the PCB's unused lanes electrically configured as receive-only MIPI
+	// inputs without instantiating their deserializers or alignment logic.  The
+	// generate conditions disappear automatically when a lane becomes active.
+	generate
+		if (`MIPI_RX_LANES < 2) begin : g_unused_lane1
+			wire unused_lp_p;
+			wire unused_lp_n;
+			reg [1:0] lp_monitor /* synthesis syn_dont_touch = 1 */;
+			MIPI_IBUF u_unused_lane_ibuf (
+				.I(1'b0), .IB(1'b0), .OEN(1'b1), .OENB(1'b1),
+				.IO(mipi_lane1_p), .IOB(mipi_lane1_n), .HSREN(1'b0),
+				.OL(unused_lp_p), .OB(unused_lp_n), .OH()
+			);
+			always @(posedge clk or negedge rst_n)
+				if (!rst_n) lp_monitor <= 2'b00;
+				else        lp_monitor <= {unused_lp_p, unused_lp_n};
+		end
+		if (`MIPI_RX_LANES < 4) begin : g_unused_lane2
+			wire unused_lp_p;
+			wire unused_lp_n;
+			reg [1:0] lp_monitor /* synthesis syn_dont_touch = 1 */;
+			MIPI_IBUF u_unused_lane_ibuf (
+				.I(1'b0), .IB(1'b0), .OEN(1'b1), .OENB(1'b1),
+				.IO(mipi_lane2_p), .IOB(mipi_lane2_n), .HSREN(1'b0),
+				.OL(unused_lp_p), .OB(unused_lp_n), .OH()
+			);
+			always @(posedge clk or negedge rst_n)
+				if (!rst_n) lp_monitor <= 2'b00;
+				else        lp_monitor <= {unused_lp_p, unused_lp_n};
+		end
+		if (`MIPI_RX_LANES < 4) begin : g_unused_lane3
+			wire unused_lp_p;
+			wire unused_lp_n;
+			reg [1:0] lp_monitor /* synthesis syn_dont_touch = 1 */;
+			MIPI_IBUF u_unused_lane_ibuf (
+				.I(1'b0), .IB(1'b0), .OEN(1'b1), .OENB(1'b1),
+				.IO(mipi_lane3_p), .IOB(mipi_lane3_n), .HSREN(1'b0),
+				.OL(unused_lp_p), .OB(unused_lp_n), .OH()
+			);
+			always @(posedge clk or negedge rst_n)
+				if (!rst_n) lp_monitor <= 2'b00;
+				else        lp_monitor <= {unused_lp_p, unused_lp_n};
+		end
+	endgenerate
+
+	// The D-PHY receiver uses MIPI IO, so the HS input and termination
 	// follow the data-lane LP state. LP01 -> LP00 is the D-PHY request to enter
 	// high-speed reception; returning to LP11 marks the end of the burst.
 	reg [1:0] lp_data0_d0;
@@ -159,31 +228,34 @@ module vin_mipi (
 	// =========================================================================
 	// Protocol parser
 	// =========================================================================
-	MIPI_DSI_CSI2_RX_Top u_mipi_protocol(
-		.I_RSTN      (rx_stream_rst_n),
-		.I_BYTE_CLK  (clk_byte_out),
-		.I_REF_DT    (6'h3E),      // RGB888
-		.I_READY     (ready),
-		.I_DATA0     (data_out0),
-		.I_DATA1     (data_out1),
-		.O_SP_EN     (o_sp_en),
-		.O_LP_EN     (),
-		.O_LP_AV_EN  (o_lp_av_en),
-		.O_ECC_OK    (ecc_ok),
-		.O_ECC       (),
-		.O_WC        (o_wc),
-		.O_VC        (),
-		.O_DT        (o_dt),
-		.O_PAYLOAD   (o_payload),
-		.O_PAYLOAD_DV(o_payload_dv)
+	mipi_dsi_rx_custom #(
+		.LANES(`MIPI_RX_LANES)
+	) u_mipi_protocol (
+		.reset_n   (rx_stream_rst_n),
+		.clk_word  (clk_byte_out),
+		.ready     (ready),
+		.ref_dt    (6'h3e),
+		.data_in   (dphy_data_bus),
+		.sp_en     (o_sp_en),
+		.lp_en     (),
+		.lp_av_en  (o_lp_av_en),
+		.ecc_ok    (ecc_ok),
+		.ecc       (),
+		.wc        (o_wc),
+		.vc        (),
+		.dt        (o_dt),
+		.payload   (o_payload),
+		.payload_dv(o_payload_dv),
+		.long_packet_done(long_packet_done),
+		.payload_crc_ok(payload_crc_ok)
 	);
 
 	reg o_sp_en_dl;
 	reg o_lp_av_en_dl;
 	reg [5:0]  o_dt_dl;
 	reg [15:0] o_wc_dl;
-	reg [31:0] o_payload_dl;
-	reg [3:0]  o_payload_dv_dl;
+	reg [`MIPI_RX_LANES*16-1:0] o_payload_dl;
+	reg [`MIPI_RX_LANES*2-1:0]  o_payload_dv_dl;
 
 	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
 		if (!rx_stream_rst_n) begin
@@ -191,8 +263,8 @@ module vin_mipi (
 			o_lp_av_en_dl   <= 1'b0;
 			o_dt_dl         <= 6'd0;
 			o_wc_dl         <= 16'd0;
-			o_payload_dl    <= 32'd0;
-			o_payload_dv_dl <= 4'd0;
+			o_payload_dl    <= {(`MIPI_RX_LANES*16){1'b0}};
+			o_payload_dv_dl <= {(`MIPI_RX_LANES*2){1'b0}};
 		end else begin
 			o_sp_en_dl      <= o_sp_en & ecc_ok;
 			o_lp_av_en_dl   <= o_lp_av_en & ecc_ok;
@@ -248,7 +320,7 @@ module vin_mipi (
 	// the physical MIPI clock chain is valid. This leaves both supported PMICs
 	// in STANDBY at boot when no source is connected.
 	wire tcon_power_request;
-	assign v_power_request = tcon_power_request && pixel_pll_ready && lock;
+	assign v_power_request = tcon_power_request && receiver_trained && pixel_pll_ready && lock;
 
 	mipi_pll_odiv_ctrl u_pixel_pll_ctrl (
 		.clk_ref   (clk),
@@ -279,7 +351,7 @@ module vin_mipi (
 	// once, but release it through a separate three-stage synchronizer in each
 	// destination domain.  Downstream logic therefore never observes an
 	// asynchronous reset release edge.
-	wire domain_reset_n_async = rst_n & pixel_pll_ready;
+	wire domain_reset_n_async = rst_n & receiver_trained & pixel_pll_ready;
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] byte_reset_sync;
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] pixel_reset_sync;
 
@@ -350,6 +422,7 @@ module vin_mipi (
 //    );
 
 	mipi_b2p_custom #(
+		.LANES        (`MIPI_RX_LANES),
 		.HSYNC_WIDTH (`DEFAULT_HSYNC),   // hsync pulse width in pixel clocks
 		.VSYNC_LINES (`DEFAULT_VSYNC)    // vsync pulse width in pixel clocks
 	) u_pixel_converter (
@@ -359,7 +432,7 @@ module vin_mipi (
 		.i_lp_av_en     (o_lp_av_en_dl),     // o_lp_av_en & ecc_ok
 		.i_dt           (o_dt_dl),
 		.i_wc           (o_wc_dl),           // word count (payload bytes)
-		.i_payload      (o_payload_dl),      // 4 bytes per beat (2-lane 1:16)
+		.i_payload      (o_payload_dl),      // two bytes per enabled lane
 		.i_payload_dv   (o_payload_dv_dl),   // byte-valid per payload byte
 		.i_stream_reset (stream_reset_request),
 		.clk_pixel      (clk_pixel_out),

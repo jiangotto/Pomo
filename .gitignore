@@ -52,3 +52,9 @@ gowin_generate_mipi_bram_fifo.tcl
 .mipi-research/
 Firmware/**/sim/
 transcript
+
+# Locally generated Gowin MIPI reference variants used only for reverse-
+# engineering and simulation comparisons. The custom portable receivers are
+# versioned separately under Firmware/V2/src/.
+Firmware/V2/src/mipi_byte_to_pixel_converter_xlane/
+Firmware/V2/src/mipi_dsi_rx_xlane/

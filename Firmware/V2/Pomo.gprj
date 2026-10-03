@@ -25,9 +25,9 @@
         <File path="src/internal_video_gen.v" type="file.verilog" enable="1"/>
         <File path="src/mipi_b2p_custom.v" type="file.verilog" enable="1"/>
         <File path="src/mipi_byte_to_pixel_converter/mipi_byte_to_pixel_converter.v" type="file.verilog" enable="1"/>
-        <File path="src/mipi_dsi_csi2_rx/mipi_dsi_csi2_rx.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_dphy_rx_custom.v" type="file.verilog" enable="1"/>
+        <File path="src/mipi_dsi_rx_custom.v" type="file.verilog" enable="1"/>
         <File path="src/mipi_pll_odiv_ctrl.v" type="file.verilog" enable="1"/>
-        <File path="src/mipi_rx_advance/mipi_rx_advance.v" type="file.verilog" enable="1"/>
         <File path="src/mu_dbsync.v" type="file.verilog" enable="1"/>
         <File path="src/mu_dsync.v" type="file.verilog" enable="1"/>
         <File path="src/pixel_processing.v" type="file.verilog" enable="1"/>

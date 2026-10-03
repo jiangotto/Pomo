@@ -11,6 +11,7 @@
 `timescale 1ns / 1ps
 
 module mipi_b2p_custom #(
+	parameter integer LANES = 2,
 	parameter HSYNC_WIDTH  = 32,  // hsync pulse width, in pixel clocks
 	parameter VSYNC_LINES  = 8    // vsync duration, in hsync pulses (lines)
 ) (
@@ -22,8 +23,8 @@ module mipi_b2p_custom #(
 	input  wire        i_lp_av_en,     // o_lp_av_en & ecc_ok
 	input  wire [5:0]  i_dt,
 	input  wire [15:0] i_wc,           // word count (payload bytes)
-	input  wire [31:0] i_payload,      // 4 bytes per beat (2-lane 1:16)
-	input  wire [3:0]  i_payload_dv,   // byte-valid per payload byte
+	input  wire [LANES*16-1:0] i_payload,    // 2 bytes/lane in 1:16 mode
+	input  wire [LANES*2-1:0]  i_payload_dv, // byte-valid in stream order
 	input  wire        i_stream_reset, // async assertion from stable sys_clk
 
 	// === pixel clock domain outputs ===
@@ -95,83 +96,310 @@ module mipi_b2p_custom #(
 	end
 
 	// =========================================================================
-	// byte clock domain --- 1:16 byte assembler
+	// byte clock domain --- parameterized 1:16 RGB888 assembler
 	// =========================================================================
-	// The parser presents up to four ordered bytes per beat. Accumulate them in
-	// stream order and write two complete RGB888 pixels (six bytes) per FIFO
-	// entry. Since fewer than six bytes remain after each write, no beat can
-	// require more than one FIFO write.
-	reg [71:0] byte_buffer;
-	reg [3:0]  byte_count;
-	reg [47:0] fifo_pixel_pair;
-	reg        fifo_pair_wr;
+	// The single 64-bit FIFO is shared by every lane configuration.  The
+	// selected branch below is resolved at elaboration time: one lane collects
+	// four 16-bit beats, two lanes collect two 32-bit beats, and four lanes can
+	// write each complete 64-bit beat directly.  This avoids synthesizing a
+	// variable-index byte compactor for configurations that never need one.
+	wire [63:0] fifo_byte_word;
+	wire        fifo_block_wr;
 	reg        packet_active;
 	reg        payload_seen;
+	reg [15:0] packet_wc;
+	reg [15:0] received_bytes;
+	reg        packet_error_pulse;
+
+	// A line descriptor crosses independently of the pixel data.  It prevents
+	// padding in the final 64-bit word from becoming visible pixels, so image
+	// width is not required to be a multiple of four.
+	reg [15:0] line_bytes_byte;
+	reg        line_desc_toggle;
+	reg [1:0]  prefill_blocks;
+	reg        line_desc_sent;
 
 	wire payload_valid = |i_payload_dv;
-	wire in_pkt = i_lp_av_en || packet_active;
+	wire start_packet = frame_ready_byte && i_lp_av_en && (i_dt == 6'h3e);
+	wire packet_end = packet_active && payload_seen && !payload_valid;
 
-	reg [71:0] appended_bytes;
-	reg [3:0]  appended_count;
-	integer append_index;
+	reg [3:0]   input_valid_count;
+	integer valid_index;
 	always @* begin
-		appended_bytes = byte_buffer;
-		appended_count = byte_count;
-		for (append_index = 0; append_index < 4; append_index = append_index + 1) begin
-			if (i_payload_dv[append_index]) begin
-				appended_bytes[appended_count * 8 +: 8] =
-					i_payload[append_index * 8 +: 8];
-				appended_count = appended_count + 1'b1;
-			end
-		end
+		input_valid_count = 4'd0;
+		for (valid_index = 0; valid_index < LANES*2; valid_index = valid_index + 1)
+			if (i_payload_dv[valid_index])
+				input_valid_count = input_valid_count + 1'b1;
 	end
 
+	// Packet bookkeeping is independent of the lane width. fifo_block_wr is a
+	// registered pulse, so observing it here counts the write accepted by the
+	// FIFO on this byte-clock edge.
 	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
 		if (!stream_rst_n_byte) begin
-			byte_buffer    <= 72'd0;
-			byte_count     <= 4'd0;
-			fifo_pixel_pair <= 48'd0;
-			fifo_pair_wr   <= 1'b0;
 			packet_active  <= 1'b0;
 			payload_seen   <= 1'b0;
+			packet_wc      <= 16'd0;
+			received_bytes <= 16'd0;
+			line_bytes_byte <= 16'd0;
+			line_desc_toggle <= 1'b0;
+			prefill_blocks <= 2'd0;
+			line_desc_sent <= 1'b0;
+			packet_error_pulse <= 1'b0;
 		end else begin
-			fifo_pair_wr <= 1'b0;
+			packet_error_pulse <= 1'b0;
 
-			if (frame_ready_byte && i_lp_av_en) begin
-				packet_active <= 1'b1;
-				payload_seen  <= 1'b0;
-				byte_buffer   <= 72'd0;
-				byte_count    <= 4'd0;
+			if (start_packet) begin
+				packet_active <= (i_wc != 16'd0);
+				payload_seen  <= payload_valid;
+				packet_wc      <= i_wc;
+				received_bytes <= input_valid_count;
+				line_bytes_byte <= i_wc;
+				prefill_blocks <= 2'd0;
+				line_desc_sent <= 1'b0;
 			end else if (packet_active && payload_valid) begin
 				payload_seen <= 1'b1;
-				if (appended_count >= 4'd6) begin
-					fifo_pixel_pair <= appended_bytes[47:0];
-					fifo_pair_wr    <= 1'b1;
-					byte_buffer     <= appended_bytes >> 48;
-					byte_count      <= appended_count - 4'd6;
-				end else begin
-					byte_buffer <= appended_bytes;
-					byte_count  <= appended_count;
+				received_bytes <= received_bytes + input_valid_count;
+			end else if (packet_end) begin
+				if (!line_desc_sent) begin
+					line_desc_toggle <= ~line_desc_toggle;
+					line_desc_sent <= 1'b1;
 				end
-			end else if (packet_active && payload_seen) begin
 				packet_active <= 1'b0;
 				payload_seen  <= 1'b0;
-				byte_buffer   <= 72'd0;
-				byte_count    <= 4'd0;
-			end else if (!packet_active) begin
-				byte_count <= 4'd0;
+				if ((received_bytes != packet_wc) || ((packet_wc % 3) != 0))
+					packet_error_pulse <= 1'b1;
+			end
+
+			if (!start_packet && fifo_block_wr && !line_desc_sent) begin
+				if (prefill_blocks == 2'd1) begin
+					line_desc_toggle <= ~line_desc_toggle;
+					line_desc_sent <= 1'b1;
+				end else begin
+					prefill_blocks <= prefill_blocks + 2'd1;
+				end
 			end
 		end
 	end
 
+	generate
+		if (LANES == 4) begin : g_pack_4lane
+			reg [63:0] word_r;
+			reg [63:0] tail_r;
+			reg [3:0]  tail_count;
+			reg         wr_r;
+
+			assign fifo_byte_word = word_r;
+			assign fifo_block_wr = wr_r;
+
+			always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+				if (!stream_rst_n_byte) begin
+					word_r <= 64'd0;
+					tail_r <= 64'd0;
+					tail_count <= 4'd0;
+					wr_r <= 1'b0;
+				end else begin
+					wr_r <= 1'b0;
+					if (start_packet) begin
+						tail_r <= 64'd0;
+						tail_count <= 4'd0;
+						if (payload_valid) begin
+							if (input_valid_count == 4'd8) begin
+								word_r <= i_payload;
+								wr_r <= 1'b1;
+							end else begin
+								tail_r <= i_payload;
+								tail_count <= input_valid_count;
+							end
+						end
+					end else if (packet_active && payload_valid) begin
+						if (input_valid_count == 4'd8) begin
+							word_r <= i_payload;
+							wr_r <= 1'b1;
+						end else begin
+							tail_r <= i_payload;
+							tail_count <= input_valid_count;
+						end
+					end else if (packet_end) begin
+						if (tail_count != 4'd0) begin
+							word_r <= tail_r;
+							wr_r <= 1'b1;
+						end
+						tail_r <= 64'd0;
+						tail_count <= 4'd0;
+					end else if (!packet_active) begin
+						tail_r <= 64'd0;
+						tail_count <= 4'd0;
+					end
+				end
+			end
+		end else if (LANES == 2) begin : g_pack_2lane
+			reg [63:0] word_r;
+			reg [63:0] buffer_r;
+			reg [3:0]  byte_count_r;
+			reg         wr_r;
+
+			assign fifo_byte_word = word_r;
+			assign fifo_block_wr = wr_r;
+
+			always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+				if (!stream_rst_n_byte) begin
+					word_r <= 64'd0;
+					buffer_r <= 64'd0;
+					byte_count_r <= 4'd0;
+					wr_r <= 1'b0;
+				end else begin
+					wr_r <= 1'b0;
+					if (start_packet) begin
+						buffer_r <= {32'd0, i_payload};
+						byte_count_r <= payload_valid ? input_valid_count : 4'd0;
+					end else if (packet_active && payload_valid) begin
+						case (byte_count_r)
+							4'd0: begin
+								buffer_r <= {32'd0, i_payload};
+								byte_count_r <= input_valid_count;
+							end
+							4'd2: begin
+								buffer_r[47:16] <= i_payload;
+								byte_count_r <= 4'd2 + input_valid_count;
+							end
+							4'd4: begin
+								if (input_valid_count == 4'd4) begin
+									word_r <= {i_payload, buffer_r[31:0]};
+									wr_r <= 1'b1;
+									buffer_r <= 64'd0;
+									byte_count_r <= 4'd0;
+								end else begin
+									buffer_r[55:32] <= i_payload[23:0];
+									byte_count_r <= 4'd4 + input_valid_count;
+								end
+							end
+							default: begin // six-byte split-header phase
+								if (input_valid_count >= 4'd2) begin
+									word_r <= {i_payload[15:0], buffer_r[47:0]};
+									wr_r <= 1'b1;
+									buffer_r <= {48'd0, i_payload[31:16]};
+									byte_count_r <= input_valid_count - 4'd2;
+								end else begin
+									buffer_r[55:48] <= i_payload[7:0];
+									byte_count_r <= 4'd7;
+								end
+							end
+						endcase
+					end else if (packet_end) begin
+						if (byte_count_r != 4'd0) begin
+							word_r <= buffer_r;
+							wr_r <= 1'b1;
+						end
+						buffer_r <= 64'd0;
+						byte_count_r <= 4'd0;
+					end else if (!packet_active) begin
+						buffer_r <= 64'd0;
+						byte_count_r <= 4'd0;
+					end
+				end
+			end
+		end else begin : g_pack_1lane
+			reg [63:0] word_r;
+			reg [63:0] buffer_r;
+			reg [3:0]  byte_count_r;
+			reg         wr_r;
+			reg [79:0] appended_r;
+			reg [4:0]  appended_count_r;
+
+			// One lane can begin at either byte phase after the packet header.
+			// Enumerating the eight legal accumulator positions is smaller and
+			// shallower than a run-time barrel shifter.
+			always @* begin
+				appended_r = {16'd0, buffer_r};
+				case (byte_count_r)
+					4'd0: appended_r[15:0]  = i_payload;
+					4'd1: appended_r[23:8]  = i_payload;
+					4'd2: appended_r[31:16] = i_payload;
+					4'd3: appended_r[39:24] = i_payload;
+					4'd4: appended_r[47:32] = i_payload;
+					4'd5: appended_r[55:40] = i_payload;
+					4'd6: appended_r[63:48] = i_payload;
+					default: appended_r[71:56] = i_payload;
+				endcase
+				appended_count_r = {1'b0, byte_count_r} +
+					{1'b0, input_valid_count};
+			end
+
+			assign fifo_byte_word = word_r;
+			assign fifo_block_wr = wr_r;
+
+			always @(posedge clk_byte or negedge stream_rst_n_byte) begin
+				if (!stream_rst_n_byte) begin
+					word_r <= 64'd0;
+					buffer_r <= 64'd0;
+					byte_count_r <= 4'd0;
+					wr_r <= 1'b0;
+				end else begin
+					wr_r <= 1'b0;
+					if (start_packet) begin
+						buffer_r <= {48'd0, i_payload};
+						byte_count_r <= payload_valid ? input_valid_count : 4'd0;
+					end else if (packet_active && payload_valid) begin
+						if (appended_count_r >= 5'd8) begin
+							word_r <= appended_r[63:0];
+							wr_r <= 1'b1;
+							buffer_r <= {48'd0, appended_r[79:64]};
+							byte_count_r <= appended_count_r[3:0] - 4'd8;
+						end else begin
+							buffer_r <= appended_r[63:0];
+							byte_count_r <= appended_count_r[3:0];
+						end
+					end else if (packet_end) begin
+						if (byte_count_r != 4'd0) begin
+							word_r <= buffer_r;
+							wr_r <= 1'b1;
+						end
+						buffer_r <= 64'd0;
+						byte_count_r <= 4'd0;
+					end else if (!packet_active) begin
+						buffer_r <= 64'd0;
+						byte_count_r <= 4'd0;
+					end
+				end
+			end
+		end
+	endgenerate
+
 	// =========================================================================
-	// Asynchronous FIFO (48-bit write, 24-bit read)
+	// Asynchronous FIFO (64-bit write, 32-bit read)
 	// =========================================================================
-	// Gowin returns Data[23:0] before Data[47:24], preserving stream order.
+	// Gowin returns the two 32-bit slices from least to most significant.
 
 	wire        fifo_empty;
 	wire        fifo_full;
-	wire [23:0] fifo_q;
+	wire [31:0] fifo_q;
+
+	// Synchronize the per-line byte count separately from the data FIFO.  The
+	// source bus is held stable until the next line, so the toggle arrives only
+	// after the two-stage bus synchronizer has settled.
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [15:0] line_bytes_meta;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [15:0] line_bytes_sync;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] line_desc_sync;
+	reg [15:0] bytes_remaining;
+	reg [14:0] fifo_words_remaining;
+	reg        fifo_words_active;
+	reg [15:0] pending_bytes;
+	reg        pending_line;
+	reg        fifo_q_valid;
+	reg [1:0]  pixel_phase;
+	reg [23:0] carry_bytes;
+	reg [23:0] pixel_out_r;
+	reg        pixel_de_r;
+
+	function [14:0] fifo_words_for_line;
+		input [15:0] byte_total;
+		reg [16:0] word_total;
+		begin
+			word_total = (({1'b0, byte_total} + 17'd7) >> 3) << 1;
+			fifo_words_for_line = word_total[14:0];
+		end
+	endfunction
 
 	// The Gowin FIFO synchronizes its common reset internally in both clock
 	// domains.  Keep all accesses disabled for four local clocks after the
@@ -193,16 +421,101 @@ module mipi_b2p_custom #(
 	end
 	wire fifo_wr_ready = fifo_wr_startup[3];
 	wire fifo_rd_ready = fifo_rd_startup[3];
-	wire fifo_overflow = fifo_wr_ready && fifo_pair_wr && fifo_full;
+	wire fifo_overflow = fifo_wr_ready && fifo_block_wr && fifo_full;
+	wire fifo_rd_en = fifo_rd_ready && !fifo_empty &&
+		fifo_words_active && !(fifo_q_valid && (pixel_phase == 2'd2));
+	wire line_desc_edge = line_desc_sync[2] ^ line_desc_sync[1];
+	wire line_idle = (bytes_remaining == 16'd0) &&
+		!fifo_words_active && !fifo_q_valid;
+
+	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
+		if (!stream_rst_n_pixel) begin
+			line_bytes_meta <= 16'd0;
+			line_bytes_sync <= 16'd0;
+			line_desc_sync <= 3'b000;
+			bytes_remaining <= 16'd0;
+			fifo_words_remaining <= 15'd0;
+			fifo_words_active <= 1'b0;
+			pending_bytes <= 16'd0;
+			pending_line <= 1'b0;
+			fifo_q_valid <= 1'b0;
+			pixel_phase <= 2'd0;
+			carry_bytes <= 24'd0;
+			pixel_out_r <= 24'd0;
+			pixel_de_r <= 1'b0;
+		end else begin
+			line_bytes_meta <= line_bytes_byte;
+			line_bytes_sync <= line_bytes_meta;
+			line_desc_sync <= {line_desc_sync[1:0], line_desc_toggle};
+			fifo_q_valid <= fifo_rd_en;
+			pixel_de_r <= 1'b0;
+
+			if (bytes_remaining == 16'd0) begin
+				pixel_phase <= 2'd0;
+				carry_bytes <= 24'd0;
+			end else if (pixel_phase == 2'd3) begin
+				pixel_out_r <= carry_bytes;
+				pixel_de_r <= 1'b1;
+				pixel_phase <= 2'd0;
+				carry_bytes <= 24'd0;
+				bytes_remaining <= bytes_remaining - 16'd3;
+			end else if (fifo_q_valid) begin
+				pixel_de_r <= 1'b1;
+				bytes_remaining <= bytes_remaining - 16'd3;
+				case (pixel_phase)
+					2'd0: begin
+						pixel_out_r <= fifo_q[23:0];
+						carry_bytes <= {16'd0, fifo_q[31:24]};
+						pixel_phase <= 2'd1;
+					end
+					2'd1: begin
+						pixel_out_r <= {fifo_q[15:0], carry_bytes[7:0]};
+						carry_bytes <= {8'd0, fifo_q[31:16]};
+						pixel_phase <= 2'd2;
+					end
+					default: begin
+						pixel_out_r <= {fifo_q[7:0], carry_bytes[15:0]};
+						carry_bytes <= fifo_q[31:8];
+						pixel_phase <= 2'd3;
+					end
+				endcase
+			end
+			if (fifo_rd_en) begin
+				fifo_words_remaining <= fifo_words_remaining - 15'd1;
+				if (fifo_words_remaining == 15'd1)
+					fifo_words_active <= 1'b0;
+			end
+
+			if (line_desc_edge) begin
+				if (line_idle) begin
+					bytes_remaining <= line_bytes_sync;
+					fifo_words_remaining <= fifo_words_for_line(line_bytes_sync);
+					fifo_words_active <= (line_bytes_sync != 16'd0);
+					pixel_phase <= 2'd0;
+					carry_bytes <= 24'd0;
+				end else begin
+					pending_bytes <= line_bytes_sync;
+					pending_line <= 1'b1;
+				end
+			end else if (line_idle && pending_line) begin
+				bytes_remaining <= pending_bytes;
+				fifo_words_remaining <= fifo_words_for_line(pending_bytes);
+				fifo_words_active <= (pending_bytes != 16'd0);
+				pixel_phase <= 2'd0;
+				carry_bytes <= 24'd0;
+				pending_line <= 1'b0;
+			end
+		end
+	end
 
 	FIFO_HS_MIPI_Top u_fifo(
-		.Data   (fifo_pixel_pair), //input [47:0] Data
+		.Data   (fifo_byte_word), //input [63:0] Data
 		.Reset  (!stream_rst_n_byte), //input Reset
 		.WrClk  (clk_byte), //input WrClk
 		.RdClk  (clk_pixel), //input RdClk
-		.WrEn   (fifo_wr_ready && fifo_pair_wr && !fifo_full), //input WrEn
-		.RdEn   (fifo_rd_ready && !fifo_empty), //input RdEn
-		.Q      (fifo_q), //output [23:0] Q
+		.WrEn   (fifo_wr_ready && fifo_block_wr && !fifo_full), //input WrEn
+		.RdEn   (fifo_rd_en), //input RdEn
+		.Q      (fifo_q), //output [31:0] Q
 		.Empty  (fifo_empty), //output Empty
 		.Full   (fifo_full) //output Full
 	);
@@ -215,9 +528,9 @@ module mipi_b2p_custom #(
 		end else begin
 			if (i_sp_en && (i_dt == 6'h01))
 				frame_fault_byte <= 1'b0;
-			if (fifo_overflow) begin
+			if (fifo_overflow || packet_error_pulse) begin
 				frame_fault_byte <= 1'b1;
-				if (o_overflow_count != 16'hffff)
+				if (fifo_overflow && (o_overflow_count != 16'hffff))
 					o_overflow_count <= o_overflow_count + 16'd1;
 			end
 		end
@@ -264,7 +577,6 @@ module mipi_b2p_custom #(
 	reg        px_vs_level;
 	reg        px_hs_toggle;
 	reg        px_hs_toggle_d;
-	reg [1:0]  packet_active_sync;
 	reg [1:0]  frame_fault_sync;
 
 	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
@@ -273,12 +585,10 @@ module mipi_b2p_custom #(
 			px_vs_level    <= 1'b0;
 			px_hs_toggle   <= 1'b0;
 			px_hs_toggle_d <= 1'b0;
-			packet_active_sync <= 2'b00;
 			frame_fault_sync   <= 2'b00;
 		end else begin
 			cdc_valid_sync <= {cdc_valid_sync[1:0], cdc_valid};
 			px_hs_toggle_d <= px_hs_toggle;
-			packet_active_sync <= {packet_active_sync[0], in_pkt};
 			frame_fault_sync   <= {frame_fault_sync[0], frame_fault_byte};
 			if (cdc_valid_sync[2] ^ cdc_valid_sync[1])
 				{px_vs_level, px_hs_toggle} <= cdc_data;
@@ -309,7 +619,8 @@ module mipi_b2p_custom #(
 
 	assign o_vsync = px_vs_level;
 	assign o_hsync = hs_active;
-	assign o_pixel = fifo_q;
+	assign o_pixel = pixel_out_r;
+	assign o_de = pixel_de_r;
 	assign o_stream_fault = frame_fault_sync[1];
 
 	// Diagnostic only: count one event for each empty interval observed while
@@ -320,7 +631,7 @@ module mipi_b2p_custom #(
 		if (!stream_rst_n_pixel) begin
 			o_empty_count <= 16'd0;
 			empty_seen    <= 1'b0;
-		end else if (!fifo_rd_ready || !packet_active_sync[1] || !fifo_empty) begin
+		end else if (!fifo_rd_ready || (fifo_words_remaining == 0) || !fifo_empty) begin
 			empty_seen <= 1'b0;
 		end else if (!empty_seen) begin
 			empty_seen <= 1'b1;
@@ -329,15 +640,9 @@ module mipi_b2p_custom #(
 		end
 	end
 
-	// o_de must align with o_pixel: fifo_q is valid one cycle after rd_en.
-	// Delay o_de by one pixel clock to match.
-	reg o_de_r;
-	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
-		if (!stream_rst_n_pixel)
-			o_de_r <= 1'b0;
-		else
-			o_de_r <= fifo_rd_ready && !fifo_empty;
+	initial begin
+		if ((LANES != 1) && (LANES != 2) && (LANES != 4))
+			$error("mipi_b2p_custom LANES must be 1, 2, or 4");
 	end
-	assign o_de = o_de_r;
 
 endmodule

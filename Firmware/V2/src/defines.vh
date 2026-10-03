@@ -13,16 +13,25 @@
 // (CERN-OHL-P v2, Copyright Wenting Zhang 2024).
 // A copy of CERN-OHL-P v2 is provided in LICENSE-CERN-OHL-P.
 //
-// Modified by Yuhan Jiang on 2025-2026:
-//   - Adapted for Pomo EPD driver board display timing parameters
-//   - Added SYS_NORMAL/SYS_CLEAR system modes
-//   - Added auto-clear and LUT frame configurations
-//   - Added VCOM voltage configuration
 
 // === EPD PMIC selection ===
 // V2 boards are assembled with SY7636A by default. Comment this line out to
 // build the pin-compatible TPS65185 control path instead.
 `define PMIC_SY7636A
+
+// === MIPI D-PHY receive configuration ===
+// The V2 PCB routes all four data lanes.  Keep the electrical pin mapping in
+// Pomo.cst and select the active lane count here.  Supported values are 1, 2
+// and 4. The PHY and protocol parser support all three values; the current
+// byte-to-pixel/FIFO integration still limits complete project builds to 2.
+`define MIPI_RX_LANES       2
+`define MIPI_RX_IO_DELAY0   0
+`define MIPI_RX_IO_DELAY1   0
+`define MIPI_RX_IO_DELAY2   0
+`define MIPI_RX_IO_DELAY3   0
+// Boot-time CRC eye scan. The static values remain safe fallback points if no
+// sufficiently wide error-free interval is found on a lane.
+`define MIPI_RX_AUTO_TRAIN  1
 
 // === EPD source bus width ===
 // The processing pipeline produces one 2-bit pixel per clock. The Source
@@ -70,7 +79,7 @@
 `define EPD_VACT            `DEFAULT_VACT
 `endif
 
-// === 系统运行模式（pomo.v → pixel_processing.v）===
+// === System operating modes (pomo.v -> pixel_processing.v) ===
 `define SYS_NORMAL          2'b00
 `define SYS_CLEAR           2'b01
 
@@ -93,6 +102,6 @@
 `define EPD_FB_VIDEO_WIDTH   16
 
 // === DYFRC ===
-`define DEFAULT_MINDRV      2'd2    // DYFRC 默认值（caster CSR_MINDVR）
+`define DEFAULT_MINDRV      2'd2    // Default DYFRC value (Caster CSR_MINDVR)
 
 `define VCOM_VOL            13'd1330 // 1310; 2250;
