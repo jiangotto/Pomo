@@ -6,7 +6,8 @@
 
 // Runtime TCON register map carried by DSI Generic Short Write, 2 parameters
 // (DT 0x23). The first parameter is the register address and the second is the
-// value. Both observed receiver byte orders are accepted at this boundary.
+// value. The protocol parser presents Param0 in wc[7:0] and Param1 in
+// wc[15:8], matching the DSI short-packet wire order.
 module tcon_regs (
 	input  wire        rst_n,
 	input  wire        sys_clk,
@@ -39,26 +40,17 @@ module tcon_regs (
 
 	// Decode each register explicitly. This keeps the externally visible map
 	// readable and prevents unsupported values from changing TCON state.
-	wire mode_low_first = (wc[7:0] == REG_DISPLAY_MODE) &&
-		is_display_mode(wc[11:8]);
-	wire mode_high_first = (wc[15:8] == REG_DISPLAY_MODE) &&
-		is_display_mode(wc[3:0]);
 	wire mode_packet = sp_en && ecc_ok && (dt == 6'h23) &&
-		(mode_low_first || mode_high_first);
+		(wc[7:0] == REG_DISPLAY_MODE) &&
+		is_display_mode(wc[11:8]);
 
-	wire power_low_first = (wc[7:0] == REG_PANEL_POWER) &&
-		((wc[15:8] == 8'h00) || (wc[15:8] == 8'h01));
-	wire power_high_first = (wc[15:8] == REG_PANEL_POWER) &&
-		((wc[7:0] == 8'h00) || (wc[7:0] == 8'h01));
 	wire power_packet = sp_en && ecc_ok && (dt == 6'h23) &&
-		(power_low_first || power_high_first);
+		(wc[7:0] == REG_PANEL_POWER) &&
+		((wc[15:8] == 8'h00) || (wc[15:8] == 8'h01));
 
-	wire reinit_low_first = (wc[7:0] == REG_REINITIALIZE) &&
-		(wc[15:8] == REINITIALIZE_KEY);
-	wire reinit_high_first = (wc[15:8] == REG_REINITIALIZE) &&
-		(wc[7:0] == REINITIALIZE_KEY);
 	wire reinit_packet = sp_en && ecc_ok && (dt == 6'h23) &&
-		(reinit_low_first || reinit_high_first);
+		(wc[7:0] == REG_REINITIALIZE) &&
+		(wc[15:8] == REINITIALIZE_KEY);
 
 	// Byte-clock register bank. Mode and power are retained values; writing the
 	// reinitialize key toggles an event bit rather than storing the key.
@@ -74,10 +66,10 @@ module tcon_regs (
 			power_byte         <= 1'b1;
 			reinit_toggle_byte <= 1'b0;
 		end else if (mode_packet) begin
-			mode_byte <= mode_low_first ? wc[11:8] : wc[3:0];
+			mode_byte <= wc[11:8];
 			mode_toggle_byte <= ~mode_toggle_byte;
 		end else if (power_packet) begin
-			power_byte <= power_low_first ? wc[8] : wc[0];
+			power_byte <= wc[8];
 		end else if (reinit_packet) begin
 			reinit_toggle_byte <= ~reinit_toggle_byte;
 		end

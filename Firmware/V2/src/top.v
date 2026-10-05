@@ -126,10 +126,6 @@ module top (
 	wire        mipi_reinit_cmd_valid;
 	wire [3:0]  active_mode;
 	(* syn_keep = 1 *) wire        mipi_stream_fault;
-	(* syn_keep = 1 *) wire [15:0] mipi_fifo_overflow_count;
-	(* syn_keep = 1 *) wire [15:0] mipi_fifo_empty_count;
-	wire        fb_vin_fifo_full;
-	wire        fb_vout_fifo_empty;
 
 	// Keep the D-PHY instance in both builds: Gowin's MIPI pin constraints are
 	// only legal while the corresponding MIPI primitive exists in the netlist.
@@ -157,14 +153,11 @@ module top (
 		.v_mode_cmd_value(mipi_mode_cmd_value),
 		.v_reinit_cmd_valid(mipi_reinit_cmd_valid),
 		.v_power_request(mipi_power_request),
-		.v_stream_fault(mipi_stream_fault),
-		.v_fifo_overflow_count(mipi_fifo_overflow_count),
-		.v_fifo_empty_count(mipi_fifo_empty_count)
+		.v_stream_fault(mipi_stream_fault)
 	);
 
 `ifdef EPD_INTERNAL_TEST
 	wire video_domain_rst_n = sys_rst_n;
-	wire selected_stream_fault = 1'b0;
 	wire selected_mode_cmd_valid = 1'b0;
 	wire [3:0] selected_mode_cmd_value = 4'h0;
 	wire selected_reinit_cmd_valid = 1'b0;
@@ -196,7 +189,6 @@ module top (
 	);
 `else
 	wire video_domain_rst_n = sys_rst_n & mipi_ready;
-	wire selected_stream_fault = mipi_stream_fault;
 	wire selected_mode_cmd_valid = mipi_mode_cmd_valid;
 	wire [3:0] selected_mode_cmd_value = mipi_mode_cmd_value;
 	wire selected_reinit_cmd_valid = mipi_reinit_cmd_valid;
@@ -266,12 +258,9 @@ module top (
 		.vin_hsync  (vin_hsync),
 		.vin_de     (vin_de),
 		.vin_pixel  (vin_pixel),
-		.vin_stream_fault(selected_stream_fault),
 		.mode_cmd_valid(selected_mode_cmd_valid),
 		.mode_cmd_value(selected_mode_cmd_value),
 		.reinit_cmd_valid(selected_reinit_cmd_valid),
-		.fb_wr_full (fb_vin_fifo_full),
-		.fb_rd_empty(fb_vout_fifo_empty),
 		.bo_clk     (bo_clk),
 		.bo_vsync   (bo_vsync),
 		.bo_de      (bo_de),
@@ -346,8 +335,8 @@ module top (
 		.bi_den         (fb_bi_den),
 		.bi_data        (fb_bi_data),
 		.init_done      (init_done),
-		.vin_fifo_full  (fb_vin_fifo_full),
-		.vout_fifo_empty(fb_vout_fifo_empty)
+		.vin_fifo_full  (),
+		.vout_fifo_empty()
 	);
 
 

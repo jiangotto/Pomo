@@ -161,7 +161,9 @@ module mipi_dphy_rx_custom #(
 				.raw_word(raw_words[lane*16 +: 16])
 			);
 
-			mipi_dphy_lane_aligner_custom u_aligner (
+			mipi_dphy_lane_aligner_custom #(
+				.FIFO_DEPTH(LANES == 4 ? 3 : 2)
+			) u_aligner (
 				.reset_n (burst_reset_n),
 				.clk_word(clk_word),
 				.hs_en   (hs_en),
@@ -777,7 +779,9 @@ endmodule
 
 // Pure digital alignment block. Keeping it separate from the Gowin primitives
 // makes its exhaustive and randomized simulation independent of the PHY model.
-module mipi_dphy_lane_aligner_custom (
+module mipi_dphy_lane_aligner_custom #(
+	parameter integer FIFO_DEPTH = 2
+) (
 	input  wire        reset_n,
 	input  wire        clk_word,
 	input  wire        hs_en,
@@ -795,10 +799,7 @@ module mipi_dphy_lane_aligner_custom (
 	reg [15:0] current_word;
 	reg [15:0] previous_word;
 	reg [3:0]  word_phase;
-	reg [15:0] fifo0, fifo1;
-	reg        write_pointer;
-	reg        read_pointer;
-	reg [1:0]  fifo_count;
+	wire queue_can_push;
 
 	reg         sync_found;
 	reg [3:0]   sync_offset;
@@ -806,6 +807,9 @@ module mipi_dphy_lane_aligner_custom (
 	reg [15:0]  push_data;
 	wire [31:0] stream_window = {current_word, previous_word};
 	wire [15:0] sync_match;
+	wire        sync_match_low = |sync_match[7:0];
+	wire [7:0]  sync_match_half = sync_match_low ?
+		sync_match[7:0] : sync_match[15:8];
 	genvar sync_bit;
 	generate
 		for (sync_bit = 0; sync_bit < 16; sync_bit = sync_bit + 1) begin : g_sync_match
@@ -841,48 +845,110 @@ module mipi_dphy_lane_aligner_custom (
 		end
 	endfunction
 
-	assign empty = (fifo_count == 0);
-
 	// raw_word[0] is the earliest serial bit produced by IDES16.  The D-PHY
 	// sync byte is transmitted least-significant bit first, so an aligned eight
 	// bit chronological window has the ordinary numeric value 8'hB8.
 	always @* begin
 		sync_found = |sync_match;
-		casex (sync_match)
-			16'bxxxxxxxxxxxxxxx1: sync_offset = 4'd0;
-			16'bxxxxxxxxxxxxxx10: sync_offset = 4'd1;
-			16'bxxxxxxxxxxxxx100: sync_offset = 4'd2;
-			16'bxxxxxxxxxxxx1000: sync_offset = 4'd3;
-			16'bxxxxxxxxxxx10000: sync_offset = 4'd4;
-			16'bxxxxxxxxxx100000: sync_offset = 4'd5;
-			16'bxxxxxxxxx1000000: sync_offset = 4'd6;
-			16'bxxxxxxxx10000000: sync_offset = 4'd7;
-			16'bxxxxxxx100000000: sync_offset = 4'd8;
-			16'bxxxxxx1000000000: sync_offset = 4'd9;
-			16'bxxxxx10000000000: sync_offset = 4'd10;
-			16'bxxxx100000000000: sync_offset = 4'd11;
-			16'bxxx1000000000000: sync_offset = 4'd12;
-			16'bxx10000000000000: sync_offset = 4'd13;
-			16'bx100000000000000: sync_offset = 4'd14;
-			default:             sync_offset = 4'd15;
-		endcase
+		// 8'hB8 has no self-overlap at shifts 1..7, so each half can contain
+		// at most one valid match. Prefer the earlier half, then encode that
+		// one-hot match without a sixteen-level priority chain.
+		sync_offset[3] = !sync_match_low;
+		sync_offset[2] = |sync_match_half[7:4];
+		sync_offset[1] = |{sync_match_half[7:6], sync_match_half[3:2]};
+		sync_offset[0] = |{sync_match_half[7], sync_match_half[5],
+			sync_match_half[3], sync_match_half[1]};
 
 		push = 1'b0;
-		push_data = 16'd0;
+		push_data = select_aligned_word(stream_window,
+			locked ? word_phase : sync_offset);
 		if (locked) begin
-			push = (fifo_count < 2) || pop;
-			push_data = select_aligned_word(stream_window, word_phase);
+			push = queue_can_push;
 		end else if (hs_en && sync_found) begin
 			// Preserve the sync byte. The Gowin DSI/CSI-2 protocol receiver
 			// consumes the same {first payload byte, 8'hB8} first word.
 			push = 1'b1;
-			push_data = select_aligned_word(stream_window, sync_offset);
 		end
 	end
 
-	always @* begin
-		data_out = read_pointer ? fifo1 : fifo0;
-	end
+	generate
+		if (FIFO_DEPTH == 2) begin : g_fifo2
+			reg [15:0] fifo0, fifo1;
+			reg read_pointer;
+			// 00=empty, 01=one word, 11=full.
+			reg [1:0] fifo_occupancy;
+			wire write_pointer = read_pointer ^
+				(fifo_occupancy[0] && !fifo_occupancy[1]);
+			assign empty = (fifo_occupancy == 2'b00);
+			assign queue_can_push = !fifo_occupancy[1] || pop;
+			always @* data_out = read_pointer ? fifo1 : fifo0;
+			always @(posedge clk_word or negedge reset_n) begin
+				if (!reset_n) begin
+					read_pointer <= 1'b0;
+					fifo_occupancy <= 2'b00;
+					fifo0 <= 16'd0;
+					fifo1 <= 16'd0;
+				end else if (!hs_en) begin
+					read_pointer <= 1'b0;
+					fifo_occupancy <= 2'b00;
+				end else begin
+					if (push) begin
+						if (write_pointer) fifo1 <= push_data;
+						else               fifo0 <= push_data;
+					end
+					if (pop) read_pointer <= ~read_pointer;
+					case ({push, pop})
+						2'b10: fifo_occupancy <= {fifo_occupancy[0], 1'b1};
+						2'b01: fifo_occupancy <= {1'b0, fifo_occupancy[1]};
+						default: fifo_occupancy <= fifo_occupancy;
+					endcase
+				end
+			end
+		end else begin : g_fifo3
+			reg [15:0] fifo0, fifo1, fifo2;
+			reg [1:0] read_pointer, write_pointer;
+			// Thermometer fill: 000, 001, 011, 111.
+			reg [2:0] occupancy;
+			assign empty = !occupancy[0];
+			assign queue_can_push = !occupancy[2] || pop;
+			always @* begin
+				case (read_pointer)
+					2'd0: data_out = fifo0;
+					2'd1: data_out = fifo1;
+					default: data_out = fifo2;
+				endcase
+			end
+			always @(posedge clk_word or negedge reset_n) begin
+				if (!reset_n) begin
+					read_pointer <= 2'd0;
+					write_pointer <= 2'd0;
+					occupancy <= 3'd0;
+					fifo0 <= 16'd0; fifo1 <= 16'd0; fifo2 <= 16'd0;
+				end else if (!hs_en) begin
+					read_pointer <= 2'd0;
+					write_pointer <= 2'd0;
+					occupancy <= 3'd0;
+				end else begin
+					if (push) begin
+						case (write_pointer)
+							2'd0: fifo0 <= push_data;
+							2'd1: fifo1 <= push_data;
+							default: fifo2 <= push_data;
+						endcase
+						write_pointer <= {write_pointer[0],
+							~(write_pointer[1] | write_pointer[0])};
+					end
+					if (pop) read_pointer <= {read_pointer[0],
+						~(read_pointer[1] | read_pointer[0])};
+					case ({push, pop})
+						2'b10: occupancy <= {occupancy[1:0], 1'b1};
+						2'b01: occupancy <= {1'b0, occupancy[2:1]};
+						default: occupancy <= occupancy;
+					endcase
+				end
+			end
+		end
+	endgenerate
 
 	always @(posedge clk_word or negedge reset_n) begin
 		if (!reset_n) begin
@@ -890,19 +956,11 @@ module mipi_dphy_lane_aligner_custom (
 			previous_word <= 16'd0;
 			word_phase <= 4'd0;
 			locked <= 1'b0;
-			write_pointer <= 1'b0;
-			read_pointer <= 1'b0;
-			fifo_count <= 2'd0;
-			fifo0 <= 16'd0;
-			fifo1 <= 16'd0;
 		end else if (!hs_en) begin
 			current_word <= raw_word;
 			previous_word <= current_word;
 			word_phase <= 4'd0;
 			locked <= 1'b0;
-			write_pointer <= 1'b0;
-			read_pointer <= 1'b0;
-			fifo_count <= 2'd0;
 		end else begin
 			current_word <= raw_word;
 			previous_word <= current_word;
@@ -911,23 +969,6 @@ module mipi_dphy_lane_aligner_custom (
 				locked <= 1'b1;
 				word_phase <= sync_offset;
 			end
-
-			if (push) begin
-				if (write_pointer)
-					fifo1 <= push_data;
-				else
-					fifo0 <= push_data;
-				write_pointer <= write_pointer + 1'b1;
-			end
-
-			if (pop)
-				read_pointer <= read_pointer + 1'b1;
-
-			case ({push, pop})
-				2'b10: fifo_count <= fifo_count + 1'b1;
-				2'b01: fifo_count <= fifo_count - 1'b1;
-				default: fifo_count <= fifo_count;
-			endcase
 		end
 	end
 endmodule

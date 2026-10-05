@@ -21,9 +21,12 @@
 
 // === MIPI D-PHY receive configuration ===
 // The V2 PCB routes all four data lanes.  Keep the electrical pin mapping in
-// Pomo.cst and select the active lane count here.  Supported values are 1, 2
-// and 4. The PHY and protocol parser support all three values; the current
-// byte-to-pixel/FIFO integration still limits complete project builds to 2.
+// Pomo.cst and select the active lane count here. Use 1 or 2 for normal
+// builds. The PHY, protocol parser, byte-to-pixel path and pixel PLL are all
+// selected at compile time from this setting. Select the matching
+// Pomo_1lane.sdc or Pomo_2lane.sdc in Pomo.gprj as well. The 4-lane
+// implementation is retained for development but is not a validated build
+// option: it has not worked reliably on hardware and nearly fills the FPGA.
 `define MIPI_RX_LANES       2
 `define MIPI_RX_IO_DELAY0   0
 `define MIPI_RX_IO_DELAY1   0

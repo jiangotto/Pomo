@@ -38,9 +38,7 @@ module vin_mipi (
 	output wire [3:0]   v_mode_cmd_value,
 	output wire         v_reinit_cmd_valid,
 	output wire         v_power_request,
-	output wire         v_stream_fault,
-	output wire [15:0]  v_fifo_overflow_count,
-	output wire [15:0]  v_fifo_empty_count
+	output wire         v_stream_fault
 );
 
 	// =========================================================================
@@ -48,7 +46,6 @@ module vin_mipi (
 	// =========================================================================
 	wire [1:0] lp_clk_out;
 	wire [1:0] lp_data0_out;
-	wire [1:0] lp_data1_out;
 	wire       clk_byte_out;
 	wire       ready;
 	wire       receiver_trained;
@@ -65,7 +62,6 @@ module vin_mipi (
 	wire [`MIPI_RX_LANES*16-1:0] dphy_data_bus;
 
 	assign lp_data0_out = lp_data_out_bus[1:0];
-	assign lp_data1_out = lp_data_out_bus[3:2];
 	reg        hs_en_reg;
 	reg [3:0]  hs_tail_cnt;
 
@@ -74,6 +70,8 @@ module vin_mipi (
 	wire        o_lp_av_en;
 	wire [5:0]  o_dt;
 	wire [15:0] o_wc;
+	wire [5:0]  o_sp_dt;
+	wire [15:0] o_sp_wc;
 	wire [`MIPI_RX_LANES*16-1:0] o_payload;
 	wire [`MIPI_RX_LANES*2-1:0]  o_payload_dv;
 	wire        ecc_ok;
@@ -229,7 +227,8 @@ module vin_mipi (
 	// Protocol parser
 	// =========================================================================
 	mipi_dsi_rx_custom #(
-		.LANES(`MIPI_RX_LANES)
+		.LANES    (`MIPI_RX_LANES),
+		.CHECK_CRC(`MIPI_RX_AUTO_TRAIN)
 	) u_mipi_protocol (
 		.reset_n   (rx_stream_rst_n),
 		.clk_word  (clk_byte_out),
@@ -244,6 +243,8 @@ module vin_mipi (
 		.wc        (o_wc),
 		.vc        (),
 		.dt        (o_dt),
+		.sp_wc     (o_sp_wc),
+		.sp_dt     (o_sp_dt),
 		.payload   (o_payload),
 		.payload_dv(o_payload_dv),
 		.long_packet_done(long_packet_done),
@@ -254,6 +255,7 @@ module vin_mipi (
 	reg o_lp_av_en_dl;
 	reg [5:0]  o_dt_dl;
 	reg [15:0] o_wc_dl;
+	reg [5:0]  o_sp_dt_dl;
 	reg [`MIPI_RX_LANES*16-1:0] o_payload_dl;
 	reg [`MIPI_RX_LANES*2-1:0]  o_payload_dv_dl;
 
@@ -263,6 +265,7 @@ module vin_mipi (
 			o_lp_av_en_dl   <= 1'b0;
 			o_dt_dl         <= 6'd0;
 			o_wc_dl         <= 16'd0;
+			o_sp_dt_dl      <= 6'd0;
 			o_payload_dl    <= {(`MIPI_RX_LANES*16){1'b0}};
 			o_payload_dv_dl <= {(`MIPI_RX_LANES*2){1'b0}};
 		end else begin
@@ -270,6 +273,7 @@ module vin_mipi (
 			o_lp_av_en_dl   <= o_lp_av_en & ecc_ok;
 			o_dt_dl         <= o_dt;
 			o_wc_dl         <= o_wc;
+			o_sp_dt_dl      <= o_sp_dt;
 			o_payload_dl    <= o_payload;
 			o_payload_dv_dl <= o_payload_dv;
 		end
@@ -277,36 +281,6 @@ module vin_mipi (
 
 	//wire w_sp_en    = o_sp_en    & ecc_ok;
 	//wire w_lp_av_en = o_lp_av_en & ecc_ok;
-
-	// =========================================================================
-	// Per-frame event counters. Reset on V Sync Start.
-	// =========================================================================
-	reg [10:0] frm_sp_cnt;     // short packets per frame
-	reg [10:0] frm_ecc_cnt;    // ecc_ok pulses per frame
-	reg [10:0] frm_lp_cnt;     // RGB long packets per frame
-	reg [10:0] last_frm_sp_cnt; // completed frame, for debug
-	reg [10:0] last_frm_lp_cnt; // completed frame, for debug
-	wire       frm_rst = o_sp_en && ecc_ok && (o_dt == 6'h01);
-
-	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
-		if (!rx_stream_rst_n) begin
-			frm_sp_cnt  <= 11'd0;
-			frm_ecc_cnt <= 11'd0;
-			frm_lp_cnt  <= 11'd0;
-			last_frm_sp_cnt <= 11'd0;
-			last_frm_lp_cnt <= 11'd0;
-		end else if (frm_rst) begin
-			last_frm_sp_cnt <= frm_sp_cnt;
-			last_frm_lp_cnt <= frm_lp_cnt;
-			frm_sp_cnt  <= 11'd1;
-			frm_ecc_cnt <= 11'd1;
-			frm_lp_cnt  <= 11'd0;
-		end else begin
-			if (o_sp_en    && ecc_ok) frm_sp_cnt  <= frm_sp_cnt  + 11'd1;
-			if (ecc_ok)               frm_ecc_cnt <= frm_ecc_cnt + 11'd1;
-			if (o_lp_av_en && ecc_ok) frm_lp_cnt  <= frm_lp_cnt  + 11'd1;
-		end
-	end
 
 	// =========================================================================
 	// Pixel clock generation
@@ -322,7 +296,9 @@ module vin_mipi (
 	wire tcon_power_request;
 	assign v_power_request = tcon_power_request && receiver_trained && pixel_pll_ready && lock;
 
-	mipi_pll_odiv_ctrl u_pixel_pll_ctrl (
+	mipi_pll_odiv_ctrl #(
+		.LANES (`MIPI_RX_LANES)
+	) u_pixel_pll_ctrl (
 		.clk_ref   (clk),
 		.clk_byte  (clk_byte_out),
 		.rst_n     (rst_n),
@@ -332,13 +308,32 @@ module vin_mipi (
 		.pll_ready (pixel_pll_ready)
 	);
 
-	Gowin_PLLVR_M4D3 u_pll_v_pclk(
-		.clkout (clk_pixel_out),
-		.lock   (lock),
-		.reset  (pixel_pll_reset),
-		.clkin  (clk_byte_out),
-		.odsel  (pixel_pll_odsel)
-	);
+
+	// The 1:16 word clock transports 16 bits per lane each cycle.  Select the
+	// compile-time PLL ratio that converts aggregate link throughput to one
+	// RGB888 pixel per pixel-clock cycle.  Only one branch is elaborated, so the
+	// three supported configurations still consume one physical PLLVR.
+	generate
+		if (`MIPI_RX_LANES == 1) begin : g_pixel_pll_1lane
+			Gowin_PLLVR_M2D3 u_pll_v_pclk(
+				.clkout (clk_pixel_out), .lock (lock),
+				.reset (pixel_pll_reset), .clkin (clk_byte_out),
+				.odsel (pixel_pll_odsel)
+			);
+		end else if (`MIPI_RX_LANES == 2) begin : g_pixel_pll_2lane
+			Gowin_PLLVR_M4D3 u_pll_v_pclk(
+				.clkout (clk_pixel_out), .lock (lock),
+				.reset (pixel_pll_reset), .clkin (clk_byte_out),
+				.odsel (pixel_pll_odsel)
+			);
+		end else begin : g_pixel_pll_4lane
+			Gowin_PLLVR_M8D3 u_pll_v_pclk(
+				.clkout (clk_pixel_out), .lock (lock),
+				.reset (pixel_pll_reset), .clkin (clk_byte_out),
+				.odsel (pixel_pll_odsel)
+			);
+		end
+	endgenerate
 
 	assign v_pclk = clk_pixel_out;
 
@@ -383,8 +378,8 @@ module vin_mipi (
 		.pixel_rst_n   (rst_n_pixel_sync),
 		.sp_en         (o_sp_en),
 		.ecc_ok        (ecc_ok),
-		.dt            (o_dt),
-		.wc            (o_wc),
+		.dt            (o_sp_dt),
+		.wc            (o_sp_wc),
 		.mode_write    (v_mode_cmd_valid),
 		.mode_value    (v_mode_cmd_value),
 		.panel_power   (tcon_power_request),
@@ -429,6 +424,7 @@ module vin_mipi (
 		.clk_byte       (clk_byte_out),
 		.rst_n_byte     (rst_n_byte_sync),
 		.i_sp_en        (o_sp_en_dl),        // o_sp_en & ecc_ok
+		.i_sp_dt        (o_sp_dt_dl),
 		.i_lp_av_en     (o_lp_av_en_dl),     // o_lp_av_en & ecc_ok
 		.i_dt           (o_dt_dl),
 		.i_wc           (o_wc_dl),           // word count (payload bytes)
@@ -441,9 +437,7 @@ module vin_mipi (
 		.o_hsync        (conv_hsync),
 		.o_de           (conv_de),
 		.o_pixel        (conv_pixel),         // RGB888
-		.o_stream_fault (v_stream_fault),
-		.o_overflow_count(v_fifo_overflow_count),
-		.o_empty_count  (v_fifo_empty_count)
+		.o_stream_fault (v_stream_fault)
 	);
 
 	// =========================================================================
@@ -465,29 +459,6 @@ module vin_mipi (
 	reg        v_vsync_dl;
 	reg        v_hsync_dl;
 	reg        v_de_dl;
-
-	// =========================================================================
-	// Per-frame conv_de rising-edge counter (reset on conv_vsync rising)
-	// =========================================================================
-	reg [9:0]  frm_de_cnt;
-	reg        prev_conv_vsync;
-	reg        prev_conv_de;
-
-	always @(posedge clk_pixel_out or negedge rst_n_pixel_sync) begin
-		if (!rst_n_pixel_sync) begin
-			prev_conv_vsync <= 1'b0;
-			prev_conv_de    <= 1'b0;
-			frm_de_cnt      <= 10'd0;
-		end else begin
-			prev_conv_vsync <= conv_vsync;
-			prev_conv_de    <= conv_de;
-
-			if (conv_vsync && !prev_conv_vsync)
-				frm_de_cnt <= (conv_de && !prev_conv_de) ? 10'd1 : 10'd0;
-			else if (conv_de && !prev_conv_de)
-				frm_de_cnt <= frm_de_cnt + 10'd1;
-		end
-	end
 
 	always @(posedge clk_pixel_out or negedge rst_n_pixel_sync) begin
 		if (!rst_n_pixel_sync) begin

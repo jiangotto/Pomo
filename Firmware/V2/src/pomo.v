@@ -20,12 +20,9 @@ module pomo (
 	input  wire         vin_hsync,
 	input  wire         vin_de,
 	input  wire [3:0]   vin_pixel,
-	input  wire         vin_stream_fault,
 	input  wire         mode_cmd_valid,
 	input  wire [3:0]   mode_cmd_value,
 	input  wire         reinit_cmd_valid,
-	input  wire         fb_wr_full,
-	input  wire         fb_rd_empty,
 
 	output wire         bo_clk,
 	output wire         bo_vsync,
@@ -86,58 +83,6 @@ module pomo (
 
 	wire vin_vsync_rise = vin_vsync & ~vin_vsync_d;
 	wire vin_hsync_rise = vin_hsync & ~vin_hsync_d;
-
-	// -------------------------------------------------------------------------
-	// Streaming safety monitor
-	// -------------------------------------------------------------------------
-	// The framebuffer interface has no backpressure toward the MIPI source.
-	// Track requests which have not produced a response for diagnostics. These
-	// flags must never gate an active EPD scan because a partial Source/Gate
-	// transfer is more harmful than reporting the fault at the frame boundary.
-	localparam [11:0] MEM_OUTSTANDING_LIMIT = 12'd512;
-	reg [11:0] mem_outstanding;
-	(* syn_keep = 1 *) reg frame_fault;
-	(* syn_keep = 1 *) reg [15:0] frame_fault_count;
-	(* syn_keep = 1 *) reg [15:0] fb_wr_full_count;
-	(* syn_keep = 1 *) reg [15:0] fb_rd_empty_count;
-
-	always @(posedge clk) begin
-		if (rst) begin
-			mem_outstanding  <= 12'd0;
-			frame_fault      <= 1'b0;
-			frame_fault_count <= 16'd0;
-			fb_wr_full_count <= 16'd0;
-			fb_rd_empty_count <= 16'd0;
-		end else begin
-			if (vin_vsync_rise) begin
-				mem_outstanding <= 12'd0;
-				// Sample upstream state at the frame boundary for diagnostics.
-				frame_fault     <= vin_stream_fault || fb_wr_full;
-			end else begin
-				case ({bi_de, bi_den})
-					2'b10: if (mem_outstanding != 12'hfff)
-						mem_outstanding <= mem_outstanding + 12'd1;
-					2'b01: if (mem_outstanding != 12'd0)
-						mem_outstanding <= mem_outstanding - 12'd1;
-					default: ;
-				endcase
-			end
-
-			if (bi_de && fb_rd_empty && (fb_rd_empty_count != 16'hffff))
-				fb_rd_empty_count <= fb_rd_empty_count + 16'd1;
-			if (bo_de && fb_wr_full && (fb_wr_full_count != 16'hffff))
-				fb_wr_full_count <= fb_wr_full_count + 16'd1;
-
-			if (!frame_fault &&
-			    (vin_stream_fault ||
-			     (bo_de && fb_wr_full) ||
-			     (mem_outstanding >= MEM_OUTSTANDING_LIMIT))) begin
-				frame_fault <= 1'b1;
-				if (frame_fault_count != 16'hffff)
-					frame_fault_count <= frame_fault_count + 16'd1;
-			end
-		end
-	end
 
 	// frame_valid: high from first hsync after vsync to last line of frame
 	// vertical line counter
@@ -558,9 +503,6 @@ module pomo (
 	);
 
 	// Output
-	// Fault signals are diagnostic only. Never truncate an EPD scan in the
-	// middle of a line or frame; doing so leaves the Source/Gate ICs partially
-	// loaded and can corrupt the visible image.
 	assign pixel_comb = frame_valid ? proc_output : 2'b00;
 	assign bo_pixel_comb = frame_valid ? proc_bo : proc_bi;
 

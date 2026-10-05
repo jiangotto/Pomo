@@ -156,15 +156,15 @@ The two generated MIPI IPs must use matching settings:
 
 At high lane rates, a syntactically correct design may still show split frames, snow, or corrupted pixels when the sampling eye is too narrow. Use the shortest practical FPC, keep both lanes well matched, and tune `HS Data0/1 IO Delay Value` using repeatable test images. The current value of 46 is a result for the tested Pomo/RK3506 connection, not a panel parameter. This GW1NSR-4C configuration does not perform automatic IODELAY training, so a different host, PCB, or cable may require a new value.
 
-For the current two-lane RGB888 1:16 path:
+For RGB888 in 1:16 D-PHY mode, with `L` active data lanes:
 
 ```text
 pixel clock     = H_TOTAL × V_TOTAL × refresh rate
-1:16 word clock = pixel clock × 3 / 4
-D-PHY clock     = pixel clock × 6
+1:16 word clock = pixel clock × 3 / (2 × L)
+D-PHY clock     = pixel clock × 12 / L
 ```
 
-When changing resolution or maximum refresh rate, update the corresponding clock constraints in `Firmware/V2/src/Pomo.sdc` as well as the video timing in `defines.vh`. Do not hide failures by removing the HS, byte, pixel, or HyperRAM constraints.
+Set `MIPI_RX_LANES` in `defines.vh` and enable the matching `Pomo_1lane.sdc` or `Pomo_2lane.sdc` in `Firmware/V2/Pomo.gprj`. The checked-in project defaults to two lanes. When changing resolution or maximum refresh rate, update that lane's clock constraints along with the video timing. Do not hide failures by removing the HS, word, pixel, or HyperRAM constraints. The 4-lane implementation and its disabled SDC are retained for development, but 4-lane is not a supported build: hardware validation has failed and the current implementation nearly exhausts FPGA resources.
 
 ### Runtime display and power control
 

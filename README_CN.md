@@ -156,15 +156,15 @@ Altium 原理图、原理图 PDF、PCB、BOM 和贴片坐标文件位于 [`Hardw
 
 Lane 速率较高时，即使 RTL 和时序报告正确，采样眼图过窄仍可能表现为画面分裂、雪花或像素损坏。应尽量使用短 FPC，保证两条数据 Lane 匹配，并用可重复的测试图调节 `HS Data0/1 IO Delay Value`。当前值46只适用于已经测试的 Pomo/RK3506连接，不是墨水屏参数。当前 GW1NSR-4C 配置不能自动训练 IODELAY，因此更换主机、PCB 或排线后可能需要重新调节。
 
-当前双通道 RGB888 1:16链路的时钟关系为：
+RGB888、1:16 D-PHY 模式下，设启用的数据 Lane 数为 `L`，时钟关系为：
 
 ```text
 Pixel Clock     = H_TOTAL × V_TOTAL × 刷新率
-1:16 Word Clock = Pixel Clock × 3 / 4
-D-PHY Clock     = Pixel Clock × 6
+1:16 Word Clock = Pixel Clock × 3 / (2 × L)
+D-PHY Clock     = Pixel Clock × 12 / L
 ```
 
-改变分辨率或最高刷新率时，除了修改 `defines.vh` 中的视频时序，还必须同步更新 `Firmware/V2/src/Pomo.sdc` 中相应的时钟约束。不能通过删除 HS、Byte、Pixel 或 HyperRAM 约束来隐藏时序失败。
+在 `defines.vh` 设置 `MIPI_RX_LANES`，并在 `Firmware/V2/Pomo.gprj` 中启用对应的 `Pomo_1lane.sdc` 或 `Pomo_2lane.sdc`。工程默认使用 2 Lane。改变分辨率或最高刷新率时，必须同步更新对应 SDC 的时钟约束，不能通过删除 HS、Word、Pixel 或 HyperRAM 约束来隐藏时序失败。4 Lane 的实现和已禁用的 SDC 暂时保留供后续开发，但不作为受支持的配置：目前上板验证未通过，而且资源占用已接近芯片上限。
 
 ### 运行时显示与电源控制
 

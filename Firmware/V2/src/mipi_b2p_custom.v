@@ -20,6 +20,7 @@ module mipi_b2p_custom #(
 	input  wire        rst_n_byte,
 
 	input  wire        i_sp_en,        // o_sp_en & ecc_ok
+	input  wire [5:0]  i_sp_dt,        // short-packet DT
 	input  wire        i_lp_av_en,     // o_lp_av_en & ecc_ok
 	input  wire [5:0]  i_dt,
 	input  wire [15:0] i_wc,           // word count (payload bytes)
@@ -35,9 +36,7 @@ module mipi_b2p_custom #(
 	output wire        o_hsync,
 	output wire        o_de,
 	output wire [23:0] o_pixel,         // RGB888
-	output wire        o_stream_fault,
-	output reg  [15:0] o_overflow_count,
-	output reg  [15:0] o_empty_count
+	output wire        o_stream_fault
 );
 
 	// The MIPI clocks can stop while the host sends a command. Assert reset
@@ -79,12 +78,12 @@ module mipi_b2p_custom #(
 			vs_line_cnt <= 8'd0;
 			frame_ready_byte <= 1'b0;
 		end else if (i_sp_en) begin
-			if (i_dt == 6'h01) begin              // V Sync Start
+			if (i_sp_dt == 6'h01) begin           // V Sync Start
 				vs_level    <= 1'b1;
 				hs_toggle   <= ~hs_toggle;        // first hsync of the frame
 				vs_line_cnt <= 8'd1;
 				frame_ready_byte <= 1'b1;
-			end else if (i_dt == 6'h21) begin      // H Sync Start
+			end else if (i_sp_dt == 6'h21) begin   // H Sync Start
 				hs_toggle <= ~hs_toggle;
 				if (vs_level) begin
 					vs_line_cnt <= vs_line_cnt + 8'd1;
@@ -98,23 +97,35 @@ module mipi_b2p_custom #(
 	// =========================================================================
 	// byte clock domain --- parameterized 1:16 RGB888 assembler
 	// =========================================================================
-	// The single 64-bit FIFO is shared by every lane configuration.  The
-	// selected branch below is resolved at elaboration time: one lane collects
-	// four 16-bit beats, two lanes collect two 32-bit beats, and four lanes can
-	// write each complete 64-bit beat directly.  This avoids synthesizing a
-	// variable-index byte compactor for configurations that never need one.
+	// The single 64-bit FIFO is shared by every lane configuration. One and
+	// two lanes pack short input beats before writing it. Four lanes instead
+	// pass each beat through and skip the first beat's unused bytes on readout.
 	wire [63:0] fifo_byte_word;
 	wire        fifo_block_wr;
 	reg        packet_active;
 	reg        payload_seen;
-	reg [15:0] packet_wc;
 	reg [15:0] received_bytes;
+	reg [1:0] received_bytes_mod3;
 	reg        packet_error_pulse;
+
+	// RGB888 payload length must be divisible by three. Track the remainder
+	// while accepting bytes instead of synthesizing a 16-bit modulo divider.
+	function [1:0] modulo3_small;
+		input [3:0] value;
+		begin
+			case (value)
+				4'd0, 4'd3, 4'd6, 4'd9: modulo3_small = 2'd0;
+				4'd1, 4'd4, 4'd7, 4'd10: modulo3_small = 2'd1;
+				default: modulo3_small = 2'd2;
+			endcase
+		end
+	endfunction
 
 	// A line descriptor crosses independently of the pixel data.  It prevents
 	// padding in the final 64-bit word from becoming visible pixels, so image
 	// width is not required to be a multiple of four.
 	reg [15:0] line_bytes_byte;
+	reg [3:0] first_count_byte;
 	reg        line_desc_toggle;
 	reg [1:0]  prefill_blocks;
 	reg        line_desc_sent;
@@ -123,25 +134,37 @@ module mipi_b2p_custom #(
 	wire start_packet = frame_ready_byte && i_lp_av_en && (i_dt == 6'h3e);
 	wire packet_end = packet_active && payload_seen && !payload_valid;
 
-	reg [3:0]   input_valid_count;
-	integer valid_index;
+	// The protocol parser emits a contiguous LSB-first byte-valid mask. Decode
+	// its prefix length directly instead of building a general popcount adder;
+	// this is both the actual interface contract and substantially smaller for
+	// the eight-byte four-lane datapath.
+	wire [7:0] payload_dv_8 = {{(8-LANES*2){1'b0}}, i_payload_dv};
+	reg [3:0] input_valid_count;
+	wire [3:0] received_mod3_sum =
+		{2'b00, received_bytes_mod3} + input_valid_count;
 	always @* begin
-		input_valid_count = 4'd0;
-		for (valid_index = 0; valid_index < LANES*2; valid_index = valid_index + 1)
-			if (i_payload_dv[valid_index])
-				input_valid_count = input_valid_count + 1'b1;
+		casex (payload_dv_8)
+			8'b1xxxxxxx: input_valid_count = 4'd8;
+			8'b01xxxxxx: input_valid_count = 4'd7;
+			8'b001xxxxx: input_valid_count = 4'd6;
+			8'b0001xxxx: input_valid_count = 4'd5;
+			8'b00001xxx: input_valid_count = 4'd4;
+			8'b000001xx: input_valid_count = 4'd3;
+			8'b0000001x: input_valid_count = 4'd2;
+			8'b00000001: input_valid_count = 4'd1;
+			default:     input_valid_count = 4'd0;
+		endcase
 	end
-
-	// Packet bookkeeping is independent of the lane width. fifo_block_wr is a
-	// registered pulse, so observing it here counts the write accepted by the
-	// FIFO on this byte-clock edge.
+	// Packet bookkeeping is independent of the lane width. fifo_block_wr
+	// counts the write accepted by the FIFO on this byte-clock edge.
 	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
 		if (!stream_rst_n_byte) begin
 			packet_active  <= 1'b0;
 			payload_seen   <= 1'b0;
-			packet_wc      <= 16'd0;
 			received_bytes <= 16'd0;
+			received_bytes_mod3 <= 2'd0;
 			line_bytes_byte <= 16'd0;
+			first_count_byte <= 4'd0;
 			line_desc_toggle <= 1'b0;
 			prefill_blocks <= 2'd0;
 			line_desc_sent <= 1'b0;
@@ -152,14 +175,18 @@ module mipi_b2p_custom #(
 			if (start_packet) begin
 				packet_active <= (i_wc != 16'd0);
 				payload_seen  <= payload_valid;
-				packet_wc      <= i_wc;
 				received_bytes <= input_valid_count;
+				received_bytes_mod3 <= modulo3_small(input_valid_count);
 				line_bytes_byte <= i_wc;
+				first_count_byte <= payload_valid ? input_valid_count : 4'd0;
 				prefill_blocks <= 2'd0;
 				line_desc_sent <= 1'b0;
 			end else if (packet_active && payload_valid) begin
+				if (!payload_seen)
+					first_count_byte <= input_valid_count;
 				payload_seen <= 1'b1;
 				received_bytes <= received_bytes + input_valid_count;
+				received_bytes_mod3 <= modulo3_small(received_mod3_sum);
 			end else if (packet_end) begin
 				if (!line_desc_sent) begin
 					line_desc_toggle <= ~line_desc_toggle;
@@ -167,7 +194,8 @@ module mipi_b2p_custom #(
 				end
 				packet_active <= 1'b0;
 				payload_seen  <= 1'b0;
-				if ((received_bytes != packet_wc) || ((packet_wc % 3) != 0))
+				if ((received_bytes != line_bytes_byte) ||
+				    (received_bytes_mod3 != 2'd0))
 					packet_error_pulse <= 1'b1;
 			end
 
@@ -184,55 +212,8 @@ module mipi_b2p_custom #(
 
 	generate
 		if (LANES == 4) begin : g_pack_4lane
-			reg [63:0] word_r;
-			reg [63:0] tail_r;
-			reg [3:0]  tail_count;
-			reg         wr_r;
-
-			assign fifo_byte_word = word_r;
-			assign fifo_block_wr = wr_r;
-
-			always @(posedge clk_byte or negedge stream_rst_n_byte) begin
-				if (!stream_rst_n_byte) begin
-					word_r <= 64'd0;
-					tail_r <= 64'd0;
-					tail_count <= 4'd0;
-					wr_r <= 1'b0;
-				end else begin
-					wr_r <= 1'b0;
-					if (start_packet) begin
-						tail_r <= 64'd0;
-						tail_count <= 4'd0;
-						if (payload_valid) begin
-							if (input_valid_count == 4'd8) begin
-								word_r <= i_payload;
-								wr_r <= 1'b1;
-							end else begin
-								tail_r <= i_payload;
-								tail_count <= input_valid_count;
-							end
-						end
-					end else if (packet_active && payload_valid) begin
-						if (input_valid_count == 4'd8) begin
-							word_r <= i_payload;
-							wr_r <= 1'b1;
-						end else begin
-							tail_r <= i_payload;
-							tail_count <= input_valid_count;
-						end
-					end else if (packet_end) begin
-						if (tail_count != 4'd0) begin
-							word_r <= tail_r;
-							wr_r <= 1'b1;
-						end
-						tail_r <= 64'd0;
-						tail_count <= 4'd0;
-					end else if (!packet_active) begin
-						tail_r <= 64'd0;
-						tail_count <= 4'd0;
-					end
-				end
-			end
+			assign fifo_byte_word = i_payload;
+			assign fifo_block_wr = (start_packet || packet_active) && payload_valid;
 		end else if (LANES == 2) begin : g_pack_2lane
 			reg [63:0] word_r;
 			reg [63:0] buffer_r;
@@ -380,12 +361,17 @@ module mipi_b2p_custom #(
 	// after the two-stage bus synchronizer has settled.
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [15:0] line_bytes_meta;
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [15:0] line_bytes_sync;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [3:0] first_count_meta;
+	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [3:0] first_count_sync;
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] line_desc_sync;
 	reg [15:0] bytes_remaining;
 	reg [14:0] fifo_words_remaining;
 	reg        fifo_words_active;
 	reg [15:0] pending_bytes;
+	reg [3:0] pending_first_count;
 	reg        pending_line;
+	reg [3:0] first_count_pixel;
+	reg [1:0] first_word_state;
 	reg        fifo_q_valid;
 	reg [1:0]  pixel_phase;
 	reg [23:0] carry_bytes;
@@ -394,9 +380,17 @@ module mipi_b2p_custom #(
 
 	function [14:0] fifo_words_for_line;
 		input [15:0] byte_total;
+		input [3:0] first_count;
 		reg [16:0] word_total;
 		begin
-			word_total = (({1'b0, byte_total} + 17'd7) >> 3) << 1;
+			// Four lanes store the initial short beat as one padded 64-bit
+			// FIFO entry. Include that one-time gap when counting read words.
+			if (LANES == 4)
+				word_total = (({1'b0, byte_total} +
+					(first_count == 4'd0 ? 17'd0 : 17'd8 - first_count) +
+					17'd7) >> 3) << 1;
+			else
+				word_total = (({1'b0, byte_total} + 17'd7) >> 3) << 1;
 			fifo_words_for_line = word_total[14:0];
 		end
 	endfunction
@@ -432,12 +426,17 @@ module mipi_b2p_custom #(
 		if (!stream_rst_n_pixel) begin
 			line_bytes_meta <= 16'd0;
 			line_bytes_sync <= 16'd0;
+			first_count_meta <= 4'd0;
+			first_count_sync <= 4'd0;
 			line_desc_sync <= 3'b000;
 			bytes_remaining <= 16'd0;
 			fifo_words_remaining <= 15'd0;
 			fifo_words_active <= 1'b0;
 			pending_bytes <= 16'd0;
+			pending_first_count <= 4'd0;
 			pending_line <= 1'b0;
+			first_count_pixel <= 4'd0;
+			first_word_state <= 2'd0;
 			fifo_q_valid <= 1'b0;
 			pixel_phase <= 2'd0;
 			carry_bytes <= 24'd0;
@@ -446,6 +445,8 @@ module mipi_b2p_custom #(
 		end else begin
 			line_bytes_meta <= line_bytes_byte;
 			line_bytes_sync <= line_bytes_meta;
+			first_count_meta <= first_count_byte;
+			first_count_sync <= first_count_meta;
 			line_desc_sync <= {line_desc_sync[1:0], line_desc_toggle};
 			fifo_q_valid <= fifo_rd_en;
 			pixel_de_r <= 1'b0;
@@ -460,6 +461,49 @@ module mipi_b2p_custom #(
 				carry_bytes <= 24'd0;
 				bytes_remaining <= bytes_remaining - 16'd3;
 			end else if (fifo_q_valid) begin
+				if (LANES == 4 && first_word_state != 2'd2)
+					first_word_state <= first_word_state + 2'd1;
+				// Only the first FIFO entry may have a gap. Consume its two
+				// 32-bit halves using the recorded byte count, then let the
+				// ordinary RGB888 assembler handle the rest of the line.
+				if (LANES == 4 && first_word_state == 2'd0 && first_count_pixel < 4'd6) begin
+					case (first_count_pixel)
+						4'd1: begin carry_bytes <= {16'd0, fifo_q[7:0]}; pixel_phase <= 2'd1; end
+						4'd2: begin carry_bytes <= {8'd0, fifo_q[15:0]}; pixel_phase <= 2'd2; end
+						4'd3: begin
+							pixel_out_r <= fifo_q[23:0];
+						end
+						4'd4, 4'd5: begin
+							pixel_out_r <= fifo_q[23:0];
+							carry_bytes <= {16'd0, fifo_q[31:24]};
+							pixel_phase <= 2'd1;
+						end
+						default: begin end
+					endcase
+				end else if (LANES == 4 && first_word_state == 2'd1 &&
+				             first_count_pixel < 4'd8) begin
+					case (first_count_pixel)
+						4'd5: begin
+							carry_bytes <= {8'd0, fifo_q[7:0], carry_bytes[7:0]};
+							pixel_phase <= 2'd2;
+							pixel_de_r <= 1'b1;
+							bytes_remaining <= bytes_remaining - 16'd3;
+						end
+						4'd3, 4'd4: begin
+							pixel_de_r <= 1'b1;
+							bytes_remaining <= bytes_remaining - 16'd3;
+						end
+						4'd6, 4'd7: begin
+							pixel_out_r <= {fifo_q[15:0], carry_bytes[7:0]};
+							pixel_de_r <= 1'b1;
+							bytes_remaining <= bytes_remaining - 16'd3;
+							carry_bytes <= first_count_pixel == 4'd7 ?
+								{16'd0, fifo_q[23:16]} : 24'd0;
+							pixel_phase <= first_count_pixel == 4'd7 ? 2'd1 : 2'd0;
+						end
+						default: begin end // the second word is padding
+					endcase
+				end else begin
 				pixel_de_r <= 1'b1;
 				bytes_remaining <= bytes_remaining - 16'd3;
 				case (pixel_phase)
@@ -479,6 +523,7 @@ module mipi_b2p_custom #(
 						pixel_phase <= 2'd3;
 					end
 				endcase
+				end
 			end
 			if (fifo_rd_en) begin
 				fifo_words_remaining <= fifo_words_remaining - 15'd1;
@@ -489,18 +534,23 @@ module mipi_b2p_custom #(
 			if (line_desc_edge) begin
 				if (line_idle) begin
 					bytes_remaining <= line_bytes_sync;
-					fifo_words_remaining <= fifo_words_for_line(line_bytes_sync);
+					fifo_words_remaining <= fifo_words_for_line(line_bytes_sync, first_count_sync);
 					fifo_words_active <= (line_bytes_sync != 16'd0);
+					first_count_pixel <= first_count_sync;
+					first_word_state <= 2'd0;
 					pixel_phase <= 2'd0;
 					carry_bytes <= 24'd0;
 				end else begin
 					pending_bytes <= line_bytes_sync;
+					pending_first_count <= first_count_sync;
 					pending_line <= 1'b1;
 				end
 			end else if (line_idle && pending_line) begin
 				bytes_remaining <= pending_bytes;
-				fifo_words_remaining <= fifo_words_for_line(pending_bytes);
+				fifo_words_remaining <= fifo_words_for_line(pending_bytes, pending_first_count);
 				fifo_words_active <= (pending_bytes != 16'd0);
+				first_count_pixel <= pending_first_count;
+				first_word_state <= 2'd0;
 				pixel_phase <= 2'd0;
 				carry_bytes <= 24'd0;
 				pending_line <= 1'b0;
@@ -524,15 +574,11 @@ module mipi_b2p_custom #(
 	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
 		if (!stream_rst_n_byte) begin
 			frame_fault_byte <= 1'b0;
-			o_overflow_count <= 16'd0;
 		end else begin
-			if (i_sp_en && (i_dt == 6'h01))
+			if (i_sp_en && (i_sp_dt == 6'h01))
 				frame_fault_byte <= 1'b0;
-			if (fifo_overflow || packet_error_pulse) begin
+			if (fifo_overflow || packet_error_pulse)
 				frame_fault_byte <= 1'b1;
-				if (fifo_overflow && (o_overflow_count != 16'hffff))
-					o_overflow_count <= o_overflow_count + 16'd1;
-			end
 		end
 	end
 
@@ -585,11 +631,11 @@ module mipi_b2p_custom #(
 			px_vs_level    <= 1'b0;
 			px_hs_toggle   <= 1'b0;
 			px_hs_toggle_d <= 1'b0;
-			frame_fault_sync   <= 2'b00;
+			frame_fault_sync <= 2'b00;
 		end else begin
 			cdc_valid_sync <= {cdc_valid_sync[1:0], cdc_valid};
 			px_hs_toggle_d <= px_hs_toggle;
-			frame_fault_sync   <= {frame_fault_sync[0], frame_fault_byte};
+			frame_fault_sync <= {frame_fault_sync[0], frame_fault_byte};
 			if (cdc_valid_sync[2] ^ cdc_valid_sync[1])
 				{px_vs_level, px_hs_toggle} <= cdc_data;
 		end
@@ -622,23 +668,6 @@ module mipi_b2p_custom #(
 	assign o_pixel = pixel_out_r;
 	assign o_de = pixel_de_r;
 	assign o_stream_fault = frame_fault_sync[1];
-
-	// Diagnostic only: count one event for each empty interval observed while
-	// a long packet is active. The active-level CDC can extend slightly beyond
-	// the packet boundary, so this counter does not directly kill a frame.
-	reg empty_seen;
-	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
-		if (!stream_rst_n_pixel) begin
-			o_empty_count <= 16'd0;
-			empty_seen    <= 1'b0;
-		end else if (!fifo_rd_ready || (fifo_words_remaining == 0) || !fifo_empty) begin
-			empty_seen <= 1'b0;
-		end else if (!empty_seen) begin
-			empty_seen <= 1'b1;
-			if (o_empty_count != 16'hffff)
-				o_empty_count <= o_empty_count + 16'd1;
-		end
-	end
 
 	initial begin
 		if ((LANES != 1) && (LANES != 2) && (LANES != 4))
