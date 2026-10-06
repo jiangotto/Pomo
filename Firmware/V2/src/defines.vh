@@ -28,10 +28,10 @@
 // implementation is retained for development but is not a validated build
 // option: it has not worked reliably on hardware and nearly fills the FPGA.
 `define MIPI_RX_LANES       2
-`define MIPI_RX_IO_DELAY0   0
-`define MIPI_RX_IO_DELAY1   0
-`define MIPI_RX_IO_DELAY2   0
-`define MIPI_RX_IO_DELAY3   0
+`define MIPI_RX_IO_DELAY0   46
+`define MIPI_RX_IO_DELAY1   46
+`define MIPI_RX_IO_DELAY2   46
+`define MIPI_RX_IO_DELAY3   46
 // Boot-time CRC eye scan. The static values remain safe fallback points if no
 // sufficiently wide error-free interval is found on a lane.
 `define MIPI_RX_AUTO_TRAIN  1

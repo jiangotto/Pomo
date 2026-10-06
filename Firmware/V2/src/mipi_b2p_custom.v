@@ -42,8 +42,64 @@ module mipi_b2p_custom #(
 	// The MIPI clocks can stop while the host sends a command. Assert reset
 	// asynchronously so stopped domains are still cleared, then release it
 	// through a local three-stage synchronizer in each clock domain.
-	wire stream_rst_n_byte_async = rst_n_byte && !i_stream_reset;
-	wire stream_rst_n_pixel_async = rst_n_pixel && !i_stream_reset;
+	// An incomplete packet may leave a WC-based line descriptor waiting for
+	// bytes that will never arrive. Flush this converter at the next VSS, not
+	// in the middle of a panel scan. That VSS is discarded; a later clean VSS
+	// starts output again. The PHY and protocol parser are not reset.
+	reg recovery_pending;
+	reg recovery_fault;
+	reg recovery_reset;
+	reg [1:0] recovery_state;
+	reg packet_active;
+	(* ASYNC_REG = "TRUE" *) reg [1:0] recovery_seen_pixel;
+	(* ASYNC_REG = "TRUE" *) reg [1:0] recovery_seen_byte;
+	(* ASYNC_REG = "TRUE" *) reg [1:0] recovery_fault_pixel;
+	wire recovery_error;
+	wire recovery_vss;
+	always @(posedge clk_pixel or negedge rst_n_pixel) begin
+		if (!rst_n_pixel) begin
+			recovery_seen_pixel <= 2'b00;
+			recovery_fault_pixel <= 2'b00;
+		end else begin
+			recovery_seen_pixel <= {recovery_seen_pixel[0], recovery_reset};
+			recovery_fault_pixel <= {recovery_fault_pixel[0], recovery_fault};
+		end
+	end
+	always @(posedge clk_byte or negedge rst_n_byte or posedge i_stream_reset) begin
+		if (!rst_n_byte || i_stream_reset) begin
+			recovery_pending <= 1'b0;
+			recovery_fault <= 1'b0;
+			recovery_reset <= 1'b0;
+			recovery_state <= 2'd0;
+			recovery_seen_byte <= 2'b00;
+		end else begin
+			recovery_seen_byte <= {recovery_seen_byte[0], recovery_seen_pixel[1]};
+			if (recovery_state == 2'd0 && recovery_error) begin
+				recovery_pending <= 1'b1;
+				recovery_fault <= 1'b1;
+			end
+			case (recovery_state)
+				2'd0: if (recovery_vss) begin
+					if (recovery_pending || recovery_error || packet_active) begin
+						recovery_pending <= 1'b0;
+						recovery_fault <= 1'b1;
+						recovery_reset <= 1'b1;
+						recovery_state <= 2'd1;
+					end else begin
+						recovery_fault <= 1'b0;
+					end
+				end
+				2'd1: if (recovery_seen_byte[1]) begin
+					recovery_reset <= 1'b0;
+					recovery_state <= 2'd2;
+				end
+				default: if (!recovery_seen_byte[1])
+					recovery_state <= 2'd0;
+			endcase
+		end
+	end
+	wire stream_rst_n_byte_async = rst_n_byte && !i_stream_reset && !recovery_reset;
+	wire stream_rst_n_pixel_async = rst_n_pixel && !i_stream_reset && !recovery_reset;
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] stream_byte_reset_sync;
 	(* ASYNC_REG = "TRUE", syn_preserve = 1 *) reg [2:0] stream_pixel_reset_sync;
 	always @(posedge clk_byte or negedge stream_rst_n_byte_async) begin
@@ -102,7 +158,6 @@ module mipi_b2p_custom #(
 	// pass each beat through and skip the first beat's unused bytes on readout.
 	wire [63:0] fifo_byte_word;
 	wire        fifo_block_wr;
-	reg        packet_active;
 	reg        payload_seen;
 	reg [15:0] received_bytes;
 	reg [1:0] received_bytes_mod3;
@@ -416,6 +471,8 @@ module mipi_b2p_custom #(
 	wire fifo_wr_ready = fifo_wr_startup[3];
 	wire fifo_rd_ready = fifo_rd_startup[3];
 	wire fifo_overflow = fifo_wr_ready && fifo_block_wr && fifo_full;
+	assign recovery_error = packet_error_pulse || fifo_overflow;
+	assign recovery_vss = i_sp_en && (i_sp_dt == 6'h01);
 	wire fifo_rd_en = fifo_rd_ready && !fifo_empty &&
 		fifo_words_active && !(fifo_q_valid && (pixel_phase == 2'd2));
 	wire line_desc_edge = line_desc_sync[2] ^ line_desc_sync[1];
@@ -667,7 +724,7 @@ module mipi_b2p_custom #(
 	assign o_hsync = hs_active;
 	assign o_pixel = pixel_out_r;
 	assign o_de = pixel_de_r;
-	assign o_stream_fault = frame_fault_sync[1];
+	assign o_stream_fault = frame_fault_sync[1] || recovery_fault_pixel[1];
 
 	initial begin
 		if ((LANES != 1) && (LANES != 2) && (LANES != 4))

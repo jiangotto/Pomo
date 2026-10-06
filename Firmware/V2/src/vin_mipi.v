@@ -77,6 +77,9 @@ module vin_mipi (
 	wire        ecc_ok;
 	wire        long_packet_done;
 	wire        payload_crc_ok;
+	wire        lp_sp_en;
+	wire [5:0]  lp_sp_dt;
+	wire [15:0] lp_sp_wc;
 
 	// Runtime commands are inserted into the continuing video stream.  They
 	// must not reset the receiver: doing so resets the destination side of the
@@ -126,6 +129,17 @@ module vin_mipi (
 		.train_failed(receiver_train_failed)
 	);
 
+	// Passive LPDT tap. It uses the always-available board clock and does not
+	// feed back into the D-PHY, HS parser, or automatic IODELAY training.
+	mipi_lpdt_rx u_lpdt_rx (
+		.clk     (clk),
+		.rst_n   (rst_n),
+		.lp_data0(lp_data0_out),
+		.sp_en   (lp_sp_en),
+		.dt      (lp_sp_dt),
+		.wc      (lp_sp_wc)
+	);
+
 	// Gowin only accepts IO_TYPE=MIPI on a pin backed by a MIPI primitive.
 	// Keep the PCB's unused lanes electrically configured as receive-only MIPI
 	// inputs without instantiating their deserializers or alignment logic.  The
@@ -172,26 +186,35 @@ module vin_mipi (
 		end
 	endgenerate
 
-	// The D-PHY receiver uses MIPI IO, so the HS input and termination
-	// follow the data-lane LP state. LP01 -> LP00 is the D-PHY request to enter
-	// high-speed reception; returning to LP11 marks the end of the burst.
+	// The D-PHY receiver uses MIPI IO, so HS input and termination follow the
+	// data-lane LP state. HS entry is LP11 -> LP01 -> LP00. Escape/LPDT entry is
+	// LP11 -> LP10 -> LP00 -> LP01 -> LP00 and contains the same final edge;
+	// ignore it until the lane returns to LP11 instead of starting a false HS
+	// burst for each LPDT command bit.
 	reg [1:0] lp_data0_d0;
 	reg [1:0] lp_data0_d1;
 	reg [1:0] lp_data0_d2;
+	reg       lp_escape_active;
 
 	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
 		if (!rx_stream_rst_n) begin
 			lp_data0_d0 <= 2'b11;
 			lp_data0_d1 <= 2'b11;
 			lp_data0_d2 <= 2'b11;
+			lp_escape_active <= 1'b0;
 		end else begin
 			lp_data0_d0 <= lp_data0_out;
 			lp_data0_d1 <= lp_data0_d0;
 			lp_data0_d2 <= lp_data0_d1;
+			if (lp_data0_d1 == 2'b11)
+				lp_escape_active <= 1'b0;
+			else if (lp_data0_d2 == 2'b11 && lp_data0_d1 == 2'b10)
+				lp_escape_active <= 1'b1;
 		end
 	end
 
-	wire enter_hs = (lp_data0_d2 == 2'b01) && (lp_data0_d1 == 2'b00);
+	wire enter_hs = !lp_escape_active &&
+		(lp_data0_d2 == 2'b01) && (lp_data0_d1 == 2'b00);
 	wire leave_hs = (lp_data0_d2 != 2'b11) && (lp_data0_d1 == 2'b11);
 
 	always @(posedge clk_byte_out or negedge rx_stream_rst_n) begin
@@ -201,7 +224,7 @@ module vin_mipi (
 		end else if (enter_hs) begin
 			hs_en_reg   <= 1'b1;
 			hs_tail_cnt <= 4'd0;
-		end else if (leave_hs) begin
+		end else if (leave_hs && hs_en_reg) begin
 			// The former 1:8 path used 16 byte-clock cycles to drain the RX
 			// alignment pipeline. A 1:16 word clock carries twice as many bits,
 			// so eight cycles preserve exactly the same physical drain time.
@@ -380,6 +403,9 @@ module vin_mipi (
 		.ecc_ok        (ecc_ok),
 		.dt            (o_sp_dt),
 		.wc            (o_sp_wc),
+		.lp_sp_en      (lp_sp_en),
+		.lp_dt         (lp_sp_dt),
+		.lp_wc         (lp_sp_wc),
 		.mode_write    (v_mode_cmd_valid),
 		.mode_value    (v_mode_cmd_value),
 		.panel_power   (tcon_power_request),
