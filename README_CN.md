@@ -180,7 +180,17 @@ D-PHY Clock     = Pixel Clock × 12 / L
 | `51 01` | 请求面板重新上电，并重新执行初始化清屏 |
 | `52 A5` | 不切断面板电源，重新执行初始化清屏，完成后返回当前请求的显示模式 |
 
-这些短包必须使用 HS 发送，同时 DSI 控制器始终保持 Video Mode。不要把 DesignWare DSI Host 的 `MODE_CFG` 临时切到 Command Mode 再切回来：该操作会让视频打包器从任意水平相位重新启动，从而导致画面偏移。Linux 内核面板或 Bridge 驱动通常应通过 `mipi_dsi_generic_write()` 发送。如果使用直接操作寄存器的诊断工具，它必须保持 `MODE_CFG`、`VID_MODE_CFG` 和视频时序不变，只通过通用命令 FIFO 插入 HS 短包。
+对于支持 `panel-init-sequence` 格式的 Rockchip `panel-simple-dsi` 驱动，可以在面板设备树节点中设置开机模式。例如，以下配置已验证能在视频开始前将 Pomo 切换到 AUTO LUT：
+
+```dts
+panel-init-sequence = [
+    23 0A 02 50 0C
+];
+```
+
+`23` 是双参数 Generic Short Write 的 DSI 数据类型，`0A` 表示发送后等待10 ms，`02` 是后续负载的字节数，`50 0C` 是 Pomo 的显示模式指令。开机初始化指令通过 LPDT 接收，不依赖 HS 视频或 IODELAY 自动训练先完成；需要其他模式时可将最后一个字节改成上表中的 `08`、`0A` 或 `0B`。`EPD_DEFAULT_MODE` 仍定义未收到模式指令时的默认值。其他主机或面板驱动的设备树命令格式可能不同，不要直接照搬这五个字节的封装。
+
+视频运行期间的命令仍应作为 HS 短包插入，DSI 控制器保持 Video Mode。不要把 DesignWare DSI Host 的 `MODE_CFG` 临时切到 Command Mode 再切回来：该操作会让视频打包器从任意水平相位重新启动，从而导致画面偏移。Linux 内核面板或 Bridge 驱动通常应通过 `mipi_dsi_generic_write()` 发送。如果使用直接操作寄存器的诊断工具，它必须保持 `MODE_CFG`、`VID_MODE_CFG` 和视频时序不变，只通过通用命令 FIFO 插入 HS 短包。
 
 开机请求默认为开启，但正常 MIPI 固件只有在动态像素 PLL 已经 ready 且保持 lock 后才真正开启面板高压。收到 `51 00` 后，固件先把整套 EPD 接口钳位到无效电平，再让所选 PMIC进入待机：SY7636A 清除 `ON_OFF` 并保持 `EN` 为高，以便继续使用 I2C；TPS65185 则拉低 `PWRUP`。收到 `51 01` 后，Pomo 等待 PMIC 和 HyperRAM 稳定，回到 `INIT_IDLE`，并重新执行 `INIT_CLEARING` 后才恢复正常刷新。`EPD_INTERNAL_TEST` 不依赖 MIPI lock，PMIC由内部测试路径直接请求上电。
 

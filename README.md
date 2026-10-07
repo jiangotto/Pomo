@@ -180,7 +180,17 @@ The display mode and panel power request can be changed without rebuilding the F
 | `51 01` | Request panel power-on; the normal initialization clear runs again |
 | `52 A5` | Restart the initialization clear without cycling panel power, then return to the requested display mode |
 
-Send these packets in HS while the controller remains in video mode. Do **not** switch the DesignWare DSI host's `MODE_CFG` to command mode and back: doing so restarts the video packetizer at an arbitrary horizontal phase and can shift the image. A Linux kernel panel/bridge driver should normally issue the packet through `mipi_dsi_generic_write()`. If a diagnostic register-level tool is used, it must leave `MODE_CFG`, `VID_MODE_CFG`, and the running video timing unchanged and only enqueue the HS short packet through the generic-command FIFO.
+With a Rockchip `panel-simple-dsi` driver that supports the `panel-init-sequence` format, the startup mode can be selected in the panel device-tree node. For example, this sequence has been verified to select AUTO LUT before video begins:
+
+```dts
+panel-init-sequence = [
+    23 0A 02 50 0C
+];
+```
+
+`23` is the DSI data type for Generic Short Write with two parameters, `0A` is a 10 ms delay after transmission, `02` is the payload length, and `50 0C` is Pomo's display-mode command. Startup commands are received over LPDT, so they do not have to wait for HS video or IODELAY training. To select another mode, replace the final byte with `08`, `0A`, or `0B` from the table above. `EPD_DEFAULT_MODE` remains the fallback when no mode command is received. Other hosts or panel drivers may use a different device-tree command format; do not assume this five-byte wrapper is universal.
+
+During active video, insert commands as HS short packets while the DSI controller remains in video mode. Do **not** switch the DesignWare DSI host's `MODE_CFG` to command mode and back: doing so restarts the video packetizer at an arbitrary horizontal phase and can shift the image. A Linux kernel panel/bridge driver should normally issue the packet through `mipi_dsi_generic_write()`. If a diagnostic register-level tool is used, it must leave `MODE_CFG`, `VID_MODE_CFG`, and the running video timing unchanged and only enqueue the HS short packet through the generic-command FIFO.
 
 The power request defaults to ON, but in the normal MIPI build the physical panel rails remain off until the dynamically configured pixel PLL is ready and locked. `51 00` first clamps the complete EPD interface to its inactive levels, then places the selected PMIC in standby. For SY7636A this clears `ON_OFF` while keeping `EN` high so I2C remains available; for TPS65185 it lowers `PWRUP`. After `51 01`, Pomo waits for the PMIC and HyperRAM, returns to `INIT_IDLE`, and performs `INIT_CLEARING` before normal updates resume. `EPD_INTERNAL_TEST` does not require a MIPI lock and powers the PMIC from the internal test path.
 
