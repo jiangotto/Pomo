@@ -152,250 +152,89 @@ module mipi_dsi_rx_custom #(
 	endtask
 
 	generate
-		if (LANES == 2) begin : g_parser_2lane
-			wire sync_first = (data_in[7:0] == 8'hb8) &&
-			                  (data_in[23:16] == 8'hb8);
-			wire sync_second = (data_in[15:8] == 8'hb8) &&
-			                   (data_in[31:24] == 8'hb8);
-			wire [31:0] ordered_word = {
-				data_in[31:24], data_in[15:8], data_in[23:16], data_in[7:0]};
-			wire [31:0] split_header = {
-				ordered_word[15:0], header_prefix[15:0]};
+		if (LANES == 1 || LANES == 2) begin : g_parser_narrow
+			localparam integer BYTES=LANES*2;
+			wire [31:0] ordered_word;
+			if(LANES==1) assign ordered_word={16'd0,data_in};
+			else assign ordered_word={data_in[31:24],data_in[15:8],data_in[23:16],data_in[7:0]};
+			wire sync_first=(ordered_word[7:0]==8'hb8) && ((LANES==1)||(ordered_word[15:8]==8'hb8));
+			wire sync_second=(LANES==1) ? (ordered_word[15:8]==8'hb8) : (ordered_word[31:16]==16'hb8b8);
 			reg packet_is_ref;
+			reg [31:0] completed_header,after_header;
+			reg [3:0] available,take,crc_take;
 			reg [15:0] crc_next;
-			reg [3:0] crc_take;
-
+			reg header_good;
 			always @(posedge clk_word or negedge reset_n) begin
-				if (!reset_n || !ready) begin
-					state <= ST_SYNC; header_count <= 0; header_prefix <= 0; payload_remaining <= 0;
-					sp_en <= 0; lp_en <= 0; lp_av_en <= 0; ecc_ok <= 0;
-					ecc <= 0; wc <= 0; vc <= 0; dt <= 0; sp_wc <= 0; sp_dt <= 0; payload <= 0; payload_dv <= 0;
-					packet_is_ref <= 0;
-					crc_reg <= 16'hffff; crc_bytes_remaining <= 0; crc_header_ok <= 0;
-					long_packet_done <= 0; payload_crc_ok <= 0;
+				if(!reset_n || !ready)begin
+					state<=ST_SYNC;header_count<=0;header_prefix<=0;payload_remaining<=0;
+					sp_en<=0;lp_en<=0;lp_av_en<=0;ecc_ok<=0;ecc<=0;wc<=0;vc<=0;dt<=0;sp_wc<=0;sp_dt<=0;
+					payload<=0;payload_dv<=0;packet_is_ref<=0;
+					crc_reg<=16'hffff;crc_bytes_remaining<=0;crc_header_ok<=0;
+					long_packet_done<=0;payload_crc_ok<=0;
 				end else begin
-					sp_en <= 0; lp_en <= 0; lp_av_en <= 0; ecc_ok <= 0;
-					payload <= 0; payload_dv <= 0;
-					long_packet_done <= 0; payload_crc_ok <= 0;
-
-					// Once a long header has armed the checker, consume the raw
-					// payload and its two CRC bytes independent of DT and WC.
-					// A correct transmitted checksum drives the running CRC to zero.
-					if ((CHECK_CRC != 0) && (crc_bytes_remaining != 0)) begin
-						crc_take = (crc_bytes_remaining >= 17'd4) ? 4'd4 :
-						           crc_bytes_remaining[3:0];
-						crc_next = crc16_bytes(crc_reg, {32'd0, ordered_word}, crc_take);
-						crc_reg <= crc_next;
-						if (crc_bytes_remaining <= 17'd4) begin
-							crc_bytes_remaining <= 0;
-							long_packet_done <= 1'b1;
-							payload_crc_ok <= crc_header_ok && (crc_next == 16'd0);
-						end else begin
-							crc_bytes_remaining <= crc_bytes_remaining - 17'd4;
+					sp_en<=0;lp_en<=0;lp_av_en<=0;ecc_ok<=0;payload<=0;payload_dv<=0;
+					long_packet_done<=0;payload_crc_ok<=0;
+					// Keep the original independent CRC budget, including both CRC
+					// bytes. Also drain it when CRC checking is disabled.
+					if(crc_bytes_remaining!=0)begin
+						crc_take=(crc_bytes_remaining>=BYTES)?BYTES:crc_bytes_remaining[3:0];
+						crc_next=(CHECK_CRC!=0)?crc16_bytes(crc_reg,{32'd0,ordered_word},crc_take):crc_reg;
+						crc_reg<=crc_next;crc_bytes_remaining<=crc_bytes_remaining-crc_take;
+						if(crc_bytes_remaining<=BYTES)begin
+							long_packet_done<=1;payload_crc_ok<=crc_header_ok&&((CHECK_CRC==0)||(crc_next==0));
 						end
 					end
-					case (state)
-						ST_SYNC, ST_HOLD: begin
-							if (sync_first) begin
-								header_prefix[15:0] <= ordered_word[31:16];
-								header_count <= 2;
-								state <= ST_HEADER;
-							end else if (sync_second) begin
-								header_count <= 0;
-								state <= ST_HEADER;
-							end
-						end
-
-						ST_HEADER: begin
-							if (header_count == 0) begin
-								latch_header(ordered_word,
-									ordered_word[31:24] == header_ecc(ordered_word[23:0]));
-								if (ordered_word == 32'h010f0f08) begin
-									state <= ST_HOLD;
-								end else if (is_long_packet(ordered_word[5:0])) begin
-									crc_reg <= 16'hffff;
-									crc_bytes_remaining <= {1'b0, ordered_word[23:8]} + 17'd2;
-									crc_header_ok <=
-										(ordered_word[31:24] == header_ecc(ordered_word[23:0]));
-									packet_is_ref <= (ordered_word[5:0] == ref_dt);
-									payload_remaining <= ordered_word[23:8];
-									if (ordered_word[5:0] == ref_dt) begin
-										lp_en <= 1; lp_av_en <= 1;
-									end
-									state <= (ordered_word[23:8] == 0) ? ST_CRC : ST_PAYLOAD;
-								end else begin
-									sp_en <= 1;
-									state <= ST_HEADER;
-								end
-							end else begin
-								latch_header(split_header,
-									split_header[31:24] == header_ecc(split_header[23:0]));
-								if (split_header == 32'h010f0f08) begin
-									state <= ST_HOLD;
-								end else if (is_long_packet(split_header[5:0])) begin
-									crc_header_ok <=
-										(split_header[31:24] == header_ecc(split_header[23:0]));
-									crc_next = crc16_bytes(16'hffff,
-										{48'd0, ordered_word[31:16]},
-										4'd2);
-									crc_reg <= crc_next;
-									if (({1'b0, split_header[23:8]} + 17'd2) <= 2) begin
-										crc_bytes_remaining <= 0;
-										long_packet_done <= 1'b1;
-										payload_crc_ok <=
-											(split_header[31:24] == header_ecc(split_header[23:0])) &&
-											(crc_next == 16'd0);
-									end else begin
-										crc_bytes_remaining <=
-											{1'b0, split_header[23:8]};
-									end
-									packet_is_ref <= (split_header[5:0] == ref_dt);
-									if (split_header[5:0] == ref_dt) begin
-										lp_en <= 1; lp_av_en <= 1;
-										payload[15:0] <= ordered_word[31:16];
-										if (split_header[23:8] >= 2)
-											payload_dv <= 4'b0011;
-										else if (split_header[23:8] == 1)
-											payload_dv <= 4'b0001;
-									end
-									if (split_header[23:8] > 2) begin
-										payload_remaining <= split_header[23:8] - 16'd2;
-										state <= ST_PAYLOAD;
-									end else if (split_header[23:8] == 2) begin
-										payload_remaining <= 0;
-										state <= ST_CRC;
-									end else if (split_header[23:8] == 0) begin
-										// The high half contains the two CRC bytes.
-										payload_remaining <= 0;
-										header_count <= 0;
-										state <= ST_HEADER;
-									end else begin
-										// An odd WC shifts every later header by one byte.
-										// Wait for the next SoT rather than accept false headers.
-										payload_remaining <= 0;
-										state <= ST_HOLD;
-									end
-								end else begin
-									sp_en <= 1;
-									// The high half is already the first half of the
-									// following back-to-back short packet.
-									header_prefix[15:0] <= ordered_word[31:16];
-									header_count <= 2;
-									state <= ST_HEADER;
-								end
-							end
-						end
-
-						ST_PAYLOAD: begin
-							if (payload_remaining > 4) begin
-								if (packet_is_ref) begin
-									payload <= ordered_word;
-									payload_dv <= 4'hf;
-								end
-								payload_remaining <= payload_remaining - 16'd4;
-							end else if (payload_remaining == 4) begin
-								if (packet_is_ref) begin
-									payload <= ordered_word;
-									payload_dv <= 4'hf;
-								end
-								payload_remaining <= 0;
-								state <= ST_CRC;
-							end else if (payload_remaining == 2) begin
-								if (packet_is_ref) begin
-									payload[15:0] <= ordered_word[15:0];
-									payload_dv <= 4'b0011;
-								end
-								payload_remaining <= 0;
-								// CRC occupies this word's high half; the next
-								// word begins with a complete packet header.
-								header_count <= 0;
-								state <= ST_HEADER;
-							end else begin
-								if (packet_is_ref && (payload_remaining == 1)) begin
-									payload[7:0] <= ordered_word[7:0];
-									payload_dv <= 4'b0001;
-								end
-								payload_remaining <= 0;
-								state <= ST_HOLD;
-							end
-						end
-
-						ST_CRC: begin
-							// CRC is the low half; the high half is the first
-							// half of the next back-to-back packet header.
-							header_prefix[15:0] <= ordered_word[31:16];
-							header_count <= 2;
-							state <= ST_HEADER;
-						end
-
-						default: state <= ST_SYNC;
-					endcase
-				end
-			end
-		end else if (LANES == 1) begin : g_parser_1lane
-			reg [31:0] completed_header;
-			reg [15:0] crc_next;
-			reg [3:0] crc_take;
-			always @(posedge clk_word or negedge reset_n) begin
-				if (!reset_n || !ready) begin
-					state <= ST_SYNC; header_count <= 0; header_prefix <= 0; payload_remaining <= 0; completed_header <= 0;
-					sp_en <= 0; lp_en <= 0; lp_av_en <= 0; ecc_ok <= 0;
-					ecc <= 0; wc <= 0; vc <= 0; dt <= 0; sp_wc <= 0; sp_dt <= 0; payload <= 0; payload_dv <= 0;
-					crc_reg <= 16'hffff; crc_bytes_remaining <= 0; crc_header_ok <= 0;
-					long_packet_done <= 0; payload_crc_ok <= 0;
-				end else begin
-					sp_en <= 0; lp_en <= 0; lp_av_en <= 0; ecc_ok <= 0; payload <= 0; payload_dv <= 0;
-					long_packet_done <= 0; payload_crc_ok <= 0;
-					if ((CHECK_CRC != 0) && (crc_bytes_remaining != 0)) begin
-						crc_take = (crc_bytes_remaining >= 17'd2) ? 4'd2 :
-						           crc_bytes_remaining[3:0];
-						crc_next = crc16_bytes(crc_reg, {48'd0, data_in}, crc_take);
-						crc_reg <= crc_next;
-						if (crc_bytes_remaining <= 17'd2) begin
-							crc_bytes_remaining <= 0;
-							long_packet_done <= 1'b1;
-							payload_crc_ok <= crc_header_ok && (crc_next == 16'd0);
-						end else
-							crc_bytes_remaining <= crc_bytes_remaining - 17'd2;
-					end
-					case (state)
-						ST_SYNC: if (data_in[7:0] == 8'hb8) begin
-							header_prefix[7:0] <= data_in[15:8]; header_count <= 1; state <= ST_HEADER;
-						end
-						ST_HEADER: if (header_count == 1) begin
-							header_prefix[23:8] <= data_in; header_count <= 3;
+					case(state)
+					 ST_SYNC,ST_HOLD:begin
+						if(sync_first)begin header_prefix<=ordered_word>>(LANES*8);header_count<=LANES;state<=ST_HEADER;end
+						else if(sync_second)begin header_prefix<=0;header_count<=0;state<=ST_HEADER;end
+					 end
+					 ST_HEADER:begin
+						if(header_count+BYTES<4)begin
+							header_prefix<=header_prefix|(ordered_word<<(header_count*8));header_count<=header_count+BYTES;
 						end else begin
-							completed_header = {data_in[7:0], header_prefix};
-							latch_header(completed_header,
-								completed_header[31:24] == header_ecc(completed_header[23:0]));
-							if (is_long_packet(completed_header[5:0])) begin
-								crc_header_ok <=
-									(completed_header[31:24] == header_ecc(completed_header[23:0]));
-								crc_next = crc16_byte(16'hffff, data_in[15:8]);
-								crc_reg <= crc_next;
-								crc_bytes_remaining <= {1'b0, completed_header[23:8]} + 17'd1;
-							end
-							if (completed_header[5:0] == ref_dt) begin
-								lp_en <= 1; lp_av_en <= 1; payload[7:0] <= data_in[15:8];
-								if (completed_header[23:8] > 16'd1) begin
-									payload_dv <= 2'b01; payload_remaining <= completed_header[23:8] - 16'd1; state <= ST_PAYLOAD;
-								end else begin
-									payload_dv <= completed_header[23:8] == 16'd1; payload_remaining <= 0; state <= ST_HOLD;
+							completed_header={8'd0,header_prefix}|(ordered_word<<(header_count*8));
+							after_header=ordered_word>>((4-header_count)*8);
+							available=BYTES+header_count-4;
+							header_good=(completed_header[31:24]==header_ecc(completed_header[23:0]));
+							latch_header(completed_header,header_good);
+							if(completed_header==32'h010f0f08)begin sp_en<=1;state<=ST_HOLD;header_count<=0;header_prefix<=0;end
+							else if(is_long_packet(completed_header[5:0]))begin
+								lp_en<=1;lp_av_en<=(completed_header[5:0]==ref_dt);
+								packet_is_ref<=(completed_header[5:0]==ref_dt);crc_header_ok<=header_good;
+								take=(completed_header[23:8]<available)?completed_header[11:8]:available;
+								if(completed_header[5:0]==ref_dt)begin payload<=after_header;payload_dv<=valid_mask8(take);end
+								crc_take=({1'b0,completed_header[23:8]}+17'd2<available)?completed_header[11:8]+2:available;
+								crc_next=(CHECK_CRC!=0)?crc16_bytes(16'hffff,{32'd0,after_header},crc_take):16'hffff;
+								crc_reg<=crc_next;
+								crc_bytes_remaining<={1'b0,completed_header[23:8]}+17'd2-crc_take;
+								payload_remaining<=completed_header[23:8]-take;
+								if(completed_header[23:8]>take)state<=ST_PAYLOAD;
+								else if({1'b0,completed_header[23:8]}+17'd2>available)state<=ST_CRC;
+								else begin
+									header_prefix<=after_header>>(crc_take*8);header_count<=available-crc_take;state<=ST_HEADER;
+									long_packet_done<=1;payload_crc_ok<=header_good&&((CHECK_CRC==0)||(crc_next==0));
 								end
-							end else begin sp_en <= 1; state <= ST_HOLD; end
+							end else begin sp_en<=1;header_prefix<=after_header;header_count<=available;state<=ST_HEADER;end
 						end
-						ST_PAYLOAD: begin
-							payload <= data_in;
-							if (payload_remaining >= 16'd2) begin
-								payload_dv <= 2'b11; payload_remaining <= payload_remaining - 16'd2;
-								if (payload_remaining == 16'd2) state <= ST_HOLD;
-							end else begin payload_dv <= 2'b01; payload_remaining <= 0; state <= ST_HOLD; end
+					 end
+					 ST_PAYLOAD:begin
+						take=(payload_remaining<BYTES)?payload_remaining[3:0]:BYTES;
+						if(packet_is_ref)begin payload<=ordered_word;payload_dv<=valid_mask8(take);end
+						payload_remaining<=payload_remaining-take;
+						if(payload_remaining<=BYTES)begin
+							if(payload_remaining+17'd2<=BYTES)begin
+								header_prefix<=ordered_word>>((payload_remaining+2)*8);
+								header_count<=BYTES-payload_remaining-2;state<=ST_HEADER;
+							end else state<=ST_CRC;
 						end
-						ST_HOLD: if (data_in[7:0] == 8'hb8) begin
-							header_prefix[7:0] <= data_in[15:8];
-							header_count <= 1; state <= ST_HEADER;
+					 end
+					 ST_CRC:begin
+						if(crc_bytes_remaining<=BYTES)begin
+							header_prefix<=ordered_word>>(crc_bytes_remaining*8);header_count<=BYTES-crc_bytes_remaining;state<=ST_HEADER;
 						end
-						default: state <= ST_SYNC;
+					 end
+					 default:state<=ST_SYNC;
 					endcase
 				end
 			end

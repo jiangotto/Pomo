@@ -51,6 +51,7 @@ gowin_commands_probe.tcl
 gowin_generate_mipi_bram_fifo.tcl
 .mipi-research/
 Firmware/**/sim/
+Firmware/V2/tests/
 transcript
 /work/
 /tmp/

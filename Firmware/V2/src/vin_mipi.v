@@ -50,6 +50,13 @@ module vin_mipi (
 	wire       ready;
 	wire       receiver_trained;
 	wire       receiver_train_failed;
+	wire       receiver_stream_fault;
+	wire       converter_stream_fault;
+	(* ASYNC_REG="TRUE" *) reg [1:0] phy_fault_sync;
+	always @(posedge clk_pixel_out or negedge rst_n)
+		if(!rst_n)phy_fault_sync<=0;
+		else phy_fault_sync<={phy_fault_sync[0],receiver_stream_fault||receiver_train_failed};
+	assign v_stream_fault=converter_stream_fault||phy_fault_sync[1];
 	wire [3:0] mipi_data_p_all = {
 		mipi_lane3_p, mipi_lane2_p, mipi_lane1_p, mipi_lane0_p};
 	wire [3:0] mipi_data_n_all = {
@@ -126,7 +133,8 @@ module vin_mipi (
 		.train_packet_good(long_packet_done && payload_crc_ok),
 		.ready       (ready),
 		.trained     (receiver_trained),
-		.train_failed(receiver_train_failed)
+		.train_failed(receiver_train_failed),
+		.stream_fault(receiver_stream_fault)
 	);
 
 	// Passive LPDT tap. It uses the always-available board clock and does not
@@ -463,15 +471,15 @@ module vin_mipi (
 		.o_hsync        (conv_hsync),
 		.o_de           (conv_de),
 		.o_pixel        (conv_pixel),         // RGB888
-		.o_stream_fault (v_stream_fault)
+		.o_stream_fault (converter_stream_fault)
 	);
 
 	// =========================================================================
 	// RGB888 -> Y4
 	// =========================================================================
-	wire [7:0] r_pix = conv_pixel[23:16];
+	wire [7:0] r_pix = conv_pixel[7:0];
 	wire [7:0] g_pix = conv_pixel[15:8];
-	wire [7:0] b_pix = conv_pixel[7:0];
+	wire [7:0] b_pix = conv_pixel[23:16];
 	wire [3:0] y_pix;
 
 	rgb888_to_y4 u_rgb888_to_y4 (

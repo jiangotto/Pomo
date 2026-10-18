@@ -46,7 +46,8 @@ module mipi_dphy_rx_custom #(
 	output wire [LANES*16-1:0]     data_out,
 	output wire                    ready,
 	output wire                    trained,
-	output wire                    train_failed
+	output wire                    train_failed,
+	output wire                    stream_fault
 );
 
 	wire hs_clk;
@@ -55,17 +56,19 @@ module mipi_dphy_rx_custom #(
 	wire [LANES*16-1:0] raw_words;
 	wire [LANES-1:0] lane_locked;
 	wire [LANES-1:0] lane_empty;
+	wire [LANES-1:0] lane_overflow;
+	wire training_discard;
 	wire [LANES*16-1:0] lane_words;
 	wire delay_dynamic;
 	wire [LANES-1:0] delay_setn;
 	wire [LANES-1:0] delay_value;
 	wire all_locked = &lane_locked;
 	wire all_valid  = ~(|lane_empty);
-	wire take_word  = hs_en && all_locked && all_valid;
+	wire take_word  = hs_en && all_locked && all_valid && !(|lane_overflow);
 	// The forwarded HS clock stops at the end of a burst.  Therefore state that
 	// is local to one burst cannot wait for another clk_word edge to observe
 	// hs_en=0; clear it asynchronously as soon as LP signalling ends the burst.
-	wire burst_reset_n = reset_n && hs_en;
+	wire burst_reset_n = reset_n && hs_en && !training_discard;
 	reg [LANES*16-1:0] output_pipe0;
 	reg [LANES*16-1:0] output_pipe1;
 
@@ -171,6 +174,7 @@ module mipi_dphy_rx_custom #(
 				.pop      (take_word),
 				.locked   (lane_locked[lane]),
 				.empty    (lane_empty[lane]),
+				.overflow (lane_overflow[lane]),
 				.data_out (lane_words[lane*16 +: 16])
 			);
 		end
@@ -191,7 +195,8 @@ module mipi_dphy_rx_custom #(
 	end
 
 	assign data_out = output_pipe1;
-	assign ready = all_locked;
+	assign ready = all_locked && !(|lane_overflow);
+	assign stream_fault = |lane_overflow;
 
 	generate
 		if (AUTO_TRAIN != 0) begin : g_iodelay_training
@@ -206,7 +211,7 @@ module mipi_dphy_rx_custom #(
 				.packet_good(train_packet_good),
 				.delay_dynamic(delay_dynamic),
 				.delay_setn(delay_setn), .delay_value(delay_value),
-				.trained(trained), .failed(train_failed)
+				.trained(trained), .failed(train_failed), .discard_burst(training_discard)
 			);
 		end else begin : g_static_iodelay
 			assign delay_dynamic = 1'b0;
@@ -214,6 +219,7 @@ module mipi_dphy_rx_custom #(
 			assign delay_value = {LANES{1'b0}};
 			assign trained = 1'b1;
 			assign train_failed = 1'b0;
+			assign training_discard = 1'b0;
 		end
 	endgenerate
 
@@ -522,7 +528,8 @@ module mipi_iodelay_packet_trainer_custom #(
 	output reg  [LANES-1:0]        delay_setn,
 	output reg  [LANES-1:0]        delay_value,
 	output reg                     trained,
-	output reg                     failed
+	output reg                     failed,
+	output reg                     discard_burst
 );
 	localparam [3:0] S_LOAD       = 4'd0;
 	localparam [3:0] S_ZERO_HIGH  = 4'd1;
@@ -538,6 +545,8 @@ module mipi_iodelay_packet_trainer_custom #(
 	localparam [3:0] S_FINAL_LOW  = 4'd11;
 	localparam [3:0] S_FINAL_LOCK = 4'd12;
 	localparam [3:0] S_DONE       = 4'd13;
+	localparam [3:0] S_BOOT_WAIT  = 4'd14;
+	localparam [3:0] S_ABORT      = 4'd15;
 	localparam integer PACKET_COUNT_BITS =
 		(PACKETS_PER_TAP <= 1) ? 1 : $clog2(PACKETS_PER_TAP);
 	localparam [6:0] MIN_EYE_SPAN = MIN_EYE_TAPS - 1;
@@ -553,6 +562,7 @@ module mipi_iodelay_packet_trainer_custom #(
 	reg        tap_error;
 	reg        in_run;
 	reg        best_valid;
+	reg        boot_locked;
 
 	function [6:0] fallback_tap;
 		input [1:0] lane_number;
@@ -598,7 +608,10 @@ module mipi_iodelay_packet_trainer_custom #(
 			delay_value <= 0;
 			trained <= 0;
 			failed <= 0;
+			discard_burst <= 0;
+			boot_locked <= 0;
 		end else begin
+			if (!hs_en) discard_burst <= 0;
 			delay_value <= 0;
 			case (state)
 				S_LOAD: begin
@@ -606,7 +619,18 @@ module mipi_iodelay_packet_trainer_custom #(
 					// selected lane alone is then walked down to tap zero.
 					delay_dynamic <= 1'b0;
 					current_tap <= selected_fallback;
-					state <= S_ZERO_HIGH;
+					state <= S_BOOT_WAIT;
+				end
+				S_BOOT_WAIT: begin
+					// Keep the known static tap until one complete burst has been
+					// observed. A continuous-HS host cannot provide fresh SoT per tap;
+					// finish at the unchanged fallback instead of modifying its stream.
+					if (link_ready) boot_locked <= 1;
+					if (boot_locked && !link_ready && !hs_en) begin
+						timeout_count <= 0; state <= S_ZERO_HIGH;
+					end else if (hs_en && sample_timeout) begin
+						trained <= 1; failed <= 1; state <= S_DONE;
+					end else if (hs_en) timeout_count <= timeout_count + 1'b1;
 				end
 
 				S_ZERO_HIGH: begin
@@ -634,6 +658,8 @@ module mipi_iodelay_packet_trainer_custom #(
 					if (!link_ready) begin
 						timeout_count <= 0;
 						state <= S_WAIT_LOCK;
+					end else if (hs_en && sample_timeout) begin
+						state <= S_ABORT;
 					end else if (hs_en) begin
 						timeout_count <= timeout_count + 1'b1;
 					end
@@ -726,6 +752,7 @@ module mipi_iodelay_packet_trainer_custom #(
 					if (current_tap == best_start) begin
 						// Never release downstream logic while ready still belongs
 						// to the old tap.  The chosen center must acquire a fresh SoT.
+						timeout_count <= 0;
 						state <= S_FINAL_LOW;
 					end else begin
 						delay_setn <= {LANES{1'b1}};
@@ -741,8 +768,12 @@ module mipi_iodelay_packet_trainer_custom #(
 				end
 
 				S_FINAL_LOW: begin
-					if (!link_ready)
+					if (!link_ready) begin
+						timeout_count <= 0;
 						state <= S_FINAL_LOCK;
+					end
+					else if (hs_en && sample_timeout) state <= S_ABORT;
+					else if (hs_en) timeout_count <= timeout_count + 1'b1;
 				end
 
 				S_FINAL_LOCK: begin
@@ -764,7 +795,14 @@ module mipi_iodelay_packet_trainer_custom #(
 							best_valid <= 0;
 							state <= S_ZERO_HIGH;
 						end
-					end
+					end else if (hs_en && sample_timeout) state <= S_ABORT;
+					else if (hs_en) timeout_count <= timeout_count + 1'b1;
+				end
+				S_ABORT: begin
+					// Reload every static fallback. Discard the rest of this burst:
+					// alignment acquired at a moved tap must never reach the parser.
+					delay_dynamic <= 0; discard_burst <= hs_en;
+					trained <= 1; failed <= 1; state <= S_DONE;
 				end
 
 				default: begin
@@ -789,6 +827,7 @@ module mipi_dphy_lane_aligner_custom #(
 	input  wire        pop,
 	output reg         locked,
 	output wire        empty,
+	output reg         overflow,
 	output reg  [15:0] data_out
 );
 	localparam [7:0] DPHY_SYNC = 8'hB8;
@@ -823,25 +862,16 @@ module mipi_dphy_lane_aligner_custom #(
 	function [15:0] select_aligned_word;
 		input [31:0] bits;
 		input [3:0] phase;
+		reg [23:0] by8;
+		reg [19:0] by4;
+		reg [17:0] by2;
 		begin
-			case (phase)
-				4'd0:  select_aligned_word = bits[15:0];
-				4'd1:  select_aligned_word = bits[16:1];
-				4'd2:  select_aligned_word = bits[17:2];
-				4'd3:  select_aligned_word = bits[18:3];
-				4'd4:  select_aligned_word = bits[19:4];
-				4'd5:  select_aligned_word = bits[20:5];
-				4'd6:  select_aligned_word = bits[21:6];
-				4'd7:  select_aligned_word = bits[22:7];
-				4'd8:  select_aligned_word = bits[23:8];
-				4'd9:  select_aligned_word = bits[24:9];
-				4'd10: select_aligned_word = bits[25:10];
-				4'd11: select_aligned_word = bits[26:11];
-				4'd12: select_aligned_word = bits[27:12];
-				4'd13: select_aligned_word = bits[28:13];
-				4'd14: select_aligned_word = bits[29:14];
-				default: select_aligned_word = bits[30:15];
-			endcase
+			// A staged 8/4/2/1-bit selector shares intermediate windows instead
+			// of decoding sixteen separate wide candidates. No registers move.
+			by8 = phase[3] ? bits[31:8] : bits[23:0];
+			by4 = phase[2] ? by8[23:4] : by8[19:0];
+			by2 = phase[1] ? by4[19:2] : by4[17:0];
+			select_aligned_word = phase[0] ? by2[16:1] : by2[15:0];
 		end
 	endfunction
 
@@ -956,14 +986,17 @@ module mipi_dphy_lane_aligner_custom #(
 			previous_word <= 16'd0;
 			word_phase <= 4'd0;
 			locked <= 1'b0;
+			overflow <= 1'b0;
 		end else if (!hs_en) begin
 			current_word <= raw_word;
 			previous_word <= current_word;
 			word_phase <= 4'd0;
 			locked <= 1'b0;
+			overflow <= 1'b0;
 		end else begin
 			current_word <= raw_word;
 			previous_word <= current_word;
+			if (locked && !queue_can_push) overflow <= 1'b1;
 
 			if (!locked && sync_found) begin
 				locked <= 1'b1;
