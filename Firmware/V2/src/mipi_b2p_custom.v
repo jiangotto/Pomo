@@ -470,7 +470,11 @@ module mipi_b2p_custom #(
 	wire line_desc_edge=desc_pop;
 	wire line_idle = (bytes_remaining == 16'd0) &&
 		!fifo_words_active;
-	assign desc_pop=fifo_rd_ready&&line_idle&&!desc_empty;
+	wire hsync_blocks_line_start;
+	// A burst sender may deliver its first RGB bytes while the synthesized
+	// HSYNC pulse is still active. Keep the descriptor/data queued until that
+	// pulse ends; the raster consumer needs sync and active video separated.
+	assign desc_pop=fifo_rd_ready&&line_idle&&!desc_empty&&!hsync_blocks_line_start;
 
 	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
 		if (!stream_rst_n_pixel) begin
@@ -614,7 +618,8 @@ module mipi_b2p_custom #(
 	reg        vs_level_d;
 	reg        hs_toggle_d;
 	reg        cdc_valid;
-	reg [1:0]  cdc_data;   // {vs_level, hs_toggle}
+	// The delayed sync pair already holds the last published data.
+	wire [1:0] cdc_data = {vs_level_d, hs_toggle_d};
 
 	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
 		if (!stream_rst_n_byte) begin
@@ -632,9 +637,7 @@ module mipi_b2p_custom #(
 	always @(posedge clk_byte or negedge stream_rst_n_byte) begin
 		if (!stream_rst_n_byte) begin
 			cdc_valid <= 1'b0;
-			cdc_data  <= 2'd0;
 		end else if (vs_chg || hs_chg) begin
-			cdc_data  <= {vs_level, hs_toggle};
 			cdc_valid <= ~cdc_valid;
 		end
 	end
@@ -664,24 +667,18 @@ module mipi_b2p_custom #(
 
 	wire hs_edge = px_hs_toggle ^ px_hs_toggle_d;
 
-	// hsync pulse generator (HSYNC_WIDTH pixel clocks wide)
-	reg [5:0] hs_cnt;
-	reg       hs_active;
-
+	// One countdown encodes both the pulse length and its active state.
+	localparam integer HS_REMAINING_WIDTH = (HSYNC_WIDTH < 2) ? 1 : $clog2(HSYNC_WIDTH + 1);
+	reg [HS_REMAINING_WIDTH-1:0] hs_remaining;
+	wire hs_active = |hs_remaining;
+	assign hsync_blocks_line_start = hs_active || hs_edge;
 	always @(posedge clk_pixel or negedge stream_rst_n_pixel) begin
-		if (!stream_rst_n_pixel) begin
-			hs_cnt    <= 6'd0;
-			hs_active <= 1'b0;
-		end else begin
-			if (hs_edge) begin
-				hs_active <= 1'b1;
-				hs_cnt    <= HSYNC_WIDTH - 1;
-			end else if (hs_active && hs_cnt > 0) begin
-				hs_cnt <= hs_cnt - 1'b1;
-			end else begin
-				hs_active <= 1'b0;
-			end
-		end
+		if (!stream_rst_n_pixel)
+			hs_remaining <= 0;
+		else if (hs_edge)
+			hs_remaining <= HSYNC_WIDTH;
+		else if (hs_active)
+			hs_remaining <= hs_remaining - 1'b1;
 	end
 
 	assign o_vsync = px_vs_level;
